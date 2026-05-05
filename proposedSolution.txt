@@ -1,0 +1,67 @@
+PROJECT PROPOSAL: CURRENTSTATE
+Spatio-Temporal Intelligence for Grid-Aware EV Infrastructure
+
+Architecture Diagram: Architecture Diagram Link
+
+1. SUMMARY:
+CurrentState is a non-intrusive decision-support layer designed to manage the rapid growth of electric vehicle adoption in Bengaluru. By deploying a Spatio-Temporal Graph Neural Network, the system captures complex dependencies between city zones, grid load constraints, and charging behaviors. It translates raw data into actionable charging schedules and infrastructure expansion roadmaps without requiring modifications to existing distribution hardware, plugs right into existing grid constraints and outputs suggestions for new charging station locations and load prediction.
+
+
+
+2. SYSTEM ARCHITECTURE:
+The solution is a dual-stage neural architecture to process city data:
+
+
+
+
+A. Spatial Intelligence (The "Where")
+- Area Attribute Clustering (Hypergraphs): Categorizes Bengaluru into functional zones (residential, commercial, or workspaces) using POI density. The Attentive Hypergraph Neural Network learns that areas with similar land-use patterns share charging profiles, even if they are geographically distant.
+
+- Adjacency Graph (GAT): A Graph Attention Network models the proximal behaviour, predicting how demand shifts between neighboring sub-areas when local stations reach capacity.
+
+
+B. Temporal Intelligence (The "When")
+- Gated Temporal Attention: Employs a Transformer-based mechanism to filter noise from fluctuating charging logs, identifying critical historical peaks to provide high-precision 24-hour demand forecasting.
+
+- Variable Selection Network: Adaptively weighs dynamic external influences—such as real-time grid load, weather, and Time-of-Use pricing—to refine localized predictions.
+
+
+3. CORE SOLUTIONS:
+
+Part A: Demand Prediction & Scheduling Optimization
+- Predictive Modeling: Generates high-resolution heatmaps of EV demand across city zones at 5-minute intervals.
+
+- Load Shifting: Identifies peak overlap between EV demand and grid stress. The system generates delayed charging recommendations for residential clusters to shift load to off-peak hours (11 PM – 5 AM).
+
+
+Part B: Infrastructure Location Planning
+- High-Demand Zone Identification: pinpoints under-served clusters where POI growth and EV trends outpace current infrastructure.
+
+- Grid-Constrained Siting: Recommends new station locations by cross-referencing demand potential with available feeder headroom and transformer capacity.
+
+
+4. NON-NEGOTIABLES:
+
+- Decision-Support Layer: Outputs a planner dashboard with Go/No-Go signals for new sites and Load-Shift alerts for operators.
+
+- Explainability: Provides Feature Importance scores for every recommendation.
+
+- Data Sovereignty: A specialized GNN framework designed for on-premise deployment, ensuring no sensitive grid data is exposed to hosted LLMs.
+
+
+5. EVALUATION STRATEGY:
+
+- Peak Load Reduction: Measured against an unmanaged Charging baseline.
+
+- Siting Efficiency: Comparing data-driven locations against uniform infrastructure placement.
+
+- Forecasting Accuracy: Benchmark performance using RMSE (Root Mean Squared Error) and MAE (Mean Absolute Error).
+
+
+6. IMPLEMENTATION ROADMAP:
+
+- Phase 1 (Data Integration): Mapping Bengaluru’s POIs, road networks, and historical grid logs.
+
+- Phase 2 (Model Calibration): Training the Hypergraph and GAT modules on Bengaluru’s urban topology.
+
+- Phase 3 (Pilot Deployment): Launching the decision-support dashboard for a high-density corridor.

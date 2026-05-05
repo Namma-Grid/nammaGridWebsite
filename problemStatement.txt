@@ -1,0 +1,85 @@
+AI for EV Charging Optimization & InfrastructurePlanning by BESCOM
+
+Context
+
+Electric vehicle (EV) adoption in Bengaluru is growing rapidly, creating new andconcentrated demand on the power distribution network. Charging demand is often clusteredin specific locations and time windows—especially during evening hours—leading tolocalized grid stress.At the same time, EV charging infrastructure is still evolving. Decisions on where to installnew charging stations and how to manage charging behavior are not alwaysdata-driven.BESCOM needs systems that can:
+
+anticipate EV-driven demand,
+optimize when charging happens, and
+guide where charging infrastructure should be built.
+The solution must operate as a decision-support layer without changing existing systems.
+
+
+The Problem
+
+Build an AI-based system to:
+
+Part A — EV Charging Demand & Scheduling
+
+predict EV charging demand patterns (time and location)
+recommend optimal charging times to reduce peak load
+align charging behavior with grid conditions (e.g., off-peak periods)
+Part B — Charging Infrastructure Location Planning
+
+identify high-demand zones for EV charging
+recommend optimal locations for new charging stations
+consider factors such as demand growth, existing infrastructure, and load capacity
+ 
+
+Non-Negotiables
+
+No modification to existing distribution systems
+Works as a decision-support layer
+Uses masked or synthetic data where required
+Outputs must be explainable and actionable
+Recommendations should consider grid constraints
+No hosted LLM usage on sensitive data
+What Success Looks Like
+
+A successful solution enables:
+
+Prediction of EV charging demand by time and location
+Charging schedules that reduce peak load impact
+Identification of priority zones for new charging infrastructure
+Recommendations aligned with grid capacity and demand patterns
+Clear, actionable insights for planners and operators
+ 
+
+Sample Scenario
+
+Data on EV adoption, charging behavior (real or simulated), and grid demand patterns isavailable across city zones.A good solution would:
+
+predict when and where EV charging demand will rise
+recommend shifting charging to off-peak hours
+identify corridors or clusters with growing EV demand
+suggest locations for new charging stations
+For example:
+
+evening charging spikes in residential areas → recommend delayed charging
+rising EV density in a corridor → flag for new charging infrastructure
+Outputs should be comparable against baseline approaches such as uniform infrastructureplacement or unmanaged charging
+
+ 
+
+What Your Solution Should Cover
+
+Understanding of EV-driven demand patterns and grid impact
+Approach to demand prediction and scheduling optimization
+Approach to location recommendation for charging infrastructure
+Consideration of grid constraints and load balancing
+How outputs remain actionable and explainable
+System architecture and model choices
+Evaluation approach and baselines
+Key risks (data gaps, behavior adoption) and mitigation
+High-level implementation plan
+ 
+
+How We Will Evaluate Proposals
+
+Clarity of problem understanding
+Strength of demand prediction and scheduling logic
+Quality of location planning approach
+Integration with grid considerations
+Practicality and actionability of outputs
+Feasibility within constraints
+Quality of architecture and risk handling

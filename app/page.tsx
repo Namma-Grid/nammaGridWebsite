@@ -1,65 +1,103 @@
-import Image from "next/image";
+import Link from 'next/link';
+import gridData from '@/bangalore-hex-grid.json';
 
-export default function Home() {
+const FEATURES = [
+  {
+    href: '/hexgrid',
+    icon: '⬡',
+    title: 'Bengaluru Hex Grid',
+    description: 'H3 hexagonal spatial index with 1,519 cells at resolution 8. Explore zone classifications and demand status across the city.',
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-100',
+  },
+  {
+    href: '/routes',
+    icon: '⚡',
+    title: 'EV Route Intelligence',
+    description: 'Visualize shortest paths between locations and see EV density on each route segment in real time.',
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-100',
+  },
+  {
+    href: '/demand',
+    icon: '📊',
+    title: 'Grid Demand Prediction',
+    description: 'AI-driven 24-hour demand forecasting with interactive heatmaps and time-series analysis by zone.',
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+    border: 'border-amber-100',
+  },
+];
+
+export default function HomePage() {
+  const totalCells = gridData.meta.totalCells;
+  const zones = gridData.meta.zoneCounts;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="page-container">
+      {/* Hero */}
+      <div className="gradient-hero py-8 sm:py-12 animate-slide-up">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-white text-xl shadow-lg">
+            ⚡
+          </div>
+          <span className="badge badge-blue">AI-Powered Decision Support</span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-3 text-slate-900">
+          Volt<span className="bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">Route</span>
+        </h1>
+        <p className="text-slate-500 text-base sm:text-lg max-w-2xl leading-relaxed mb-8">
+          Spatio-temporal intelligence for grid-aware EV infrastructure planning
+          across Bengaluru. Predict demand, optimize routes, and plan charging
+          infrastructure — all without modifying existing distribution systems.
+        </p>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 stagger-children">
+          <div className="stat-card">
+            <div className="stat-value text-blue-600">{totalCells.toLocaleString()}</div>
+            <div className="stat-label">Hex Cells</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-emerald-600">{zones.residential}</div>
+            <div className="stat-label">Residential</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-amber-600">{zones.workplace}</div>
+            <div className="stat-label">Workplace</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-purple-600">{zones.marketplace}</div>
+            <div className="stat-label">Marketplace</div>
+          </div>
         </div>
-      </main>
+      </div>
+
+      {/* Feature Cards */}
+      <div className="mt-10 sm:mt-14 grid gap-5 sm:gap-6 md:grid-cols-3">
+        {FEATURES.map((f) => (
+          <Link
+            key={f.href}
+            href={f.href}
+            className={`glass-card p-6 sm:p-7 group ${f.border} border hover:scale-[1.02] transition-transform`}
+          >
+            <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center text-2xl mb-4`}>
+              {f.icon}
+            </div>
+            <h2 className={`text-lg font-semibold mb-2 ${f.color}`}>{f.title}</h2>
+            <p className="text-sm text-slate-500 leading-relaxed">{f.description}</p>
+            <div className="mt-4 flex items-center gap-1 text-sm font-medium text-blue-600 group-hover:gap-2 transition-all">
+              Explore
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
