@@ -9,16 +9,31 @@ interface HexGridMapProps {
   onCellClick?: (cell: HexCell) => void;
 }
 
+/** Safely call invalidateSize — guards against the _leaflet_pos race condition */
+function safeInvalidate(map: L.Map | null) {
+  if (!map) return;
+  try {
+    const container = map.getContainer();
+    if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
+      map.invalidateSize({ animate: false });
+    }
+  } catch {
+    // Map pane not ready yet — ignore
+  }
+}
+
 export default function HexGridMap({ cells, onCellClick }: HexGridMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const initRef = useRef(false);
+  const removedRef = useRef(false);
   const [selectedCell, setSelectedCell] = useState<HexCell | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (initRef.current || !containerRef.current) return;
     initRef.current = true;
+    removedRef.current = false;
 
     const mapDiv = document.createElement('div');
     mapDiv.style.height = '100%';
@@ -27,7 +42,11 @@ export default function HexGridMap({ cells, onCellClick }: HexGridMapProps) {
     containerRef.current.appendChild(mapDiv);
 
     const rafId = requestAnimationFrame(() => {
+      if (removedRef.current) return;
+
       import('leaflet').then((L) => {
+        if (removedRef.current) return;
+
         const gridCenter: [number, number] = [12.970879, 77.594687];
 
         const map = L.map(mapDiv, {
@@ -42,6 +61,7 @@ export default function HexGridMap({ cells, onCellClick }: HexGridMapProps) {
           maxZoom: 18,
         }).addTo(map);
 
+        // Render hex polygons
         cells.forEach((cell) => {
           const positions = cell.boundary.map((p) => [p.lat, p.lng] as [number, number]);
           const baseColor = ZONE_COLORS[cell.zone] || '#2563EB';
@@ -57,12 +77,12 @@ export default function HexGridMap({ cells, onCellClick }: HexGridMapProps) {
 
           const demandStr = cell.demanded ? '🔴 Yes' : '🟢 No';
           const tooltipContent = `
-            <div style="min-width: 160px;">
+            <div style="min-width: 170px;">
               <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; color: #0f172a;">
                 ${cell.nearestArea}
               </div>
               <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                <span style="width: 10px; height: 10px; border-radius: 2px; background: ${baseColor}; display: inline-block;"></span>
+                <span style="width: 10px; height: 10px; border-radius: 3px; background: ${baseColor}; display: inline-block;"></span>
                 <span style="color: #64748b; font-size: 12px; text-transform: capitalize;">${cell.zone}</span>
               </div>
               <div style="color: #64748b; font-size: 12px; margin-bottom: 2px;">
@@ -101,15 +121,16 @@ export default function HexGridMap({ cells, onCellClick }: HexGridMapProps) {
         mapInstanceRef.current = map;
         setLoaded(true);
 
-        map.whenReady(() => {
-          map.invalidateSize();
-          setTimeout(() => map.invalidateSize(), 300);
-        });
+        // Safe deferred sizing
+        setTimeout(() => { if (!removedRef.current) safeInvalidate(map); }, 50);
+        setTimeout(() => { if (!removedRef.current) safeInvalidate(map); }, 300);
+        setTimeout(() => { if (!removedRef.current) safeInvalidate(map); }, 800);
       });
     });
 
     return () => {
       cancelAnimationFrame(rafId);
+      removedRef.current = true;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -121,51 +142,64 @@ export default function HexGridMap({ cells, onCellClick }: HexGridMapProps) {
 
   return (
     <div className="relative">
+      {/* Map */}
       <div className="map-container">
-        <div ref={containerRef} className="h-[50vh] min-h-[320px] max-h-[520px] w-full" />
+        <div ref={containerRef} className="h-[50vh] min-h-[320px] max-h-[540px] w-full" />
         {!loaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-slate-400 text-sm">Loading map...</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-50/90 to-slate-100/90 rounded-xl">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-[3px] border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+              <span className="text-slate-400 text-sm font-medium">Loading Hex Grid...</span>
             </div>
           </div>
         )}
       </div>
 
+      {/* Selected cell info panel */}
       {selectedCell && (
-        <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-72 glass-card p-4 animate-slide-up z-[1000]">
+        <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl p-5 animate-slide-up z-[1000] shadow-xl">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-slate-800">{selectedCell.nearestArea}</h4>
+            <h4 className="font-bold text-slate-800 text-base">{selectedCell.nearestArea}</h4>
             <button
               onClick={() => setSelectedCell(null)}
-              className="text-slate-400 hover:text-slate-700 transition-colors text-lg leading-none"
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors text-sm"
             >
-              ×
+              ✕
             </button>
           </div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
+          <div className="space-y-2.5 text-sm">
+            <div className="flex justify-between items-center">
               <span className="text-slate-500">Zone Type</span>
-              <span className="capitalize text-slate-800 font-medium">{selectedCell.zone}</span>
+              <span className="capitalize text-slate-800 font-medium bg-slate-50 px-2.5 py-0.5 rounded-full text-xs">{selectedCell.zone}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-slate-500">Demand</span>
-              <span className={selectedCell.demanded ? 'text-red-600 font-medium' : 'text-emerald-600 font-medium'}>
-                {selectedCell.demanded ? 'Active' : 'Normal'}
+              <span className={`font-medium px-2.5 py-0.5 rounded-full text-xs ${selectedCell.demanded ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                {selectedCell.demanded ? '● Active' : '● Normal'}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-slate-500">Demand Level</span>
-              <span className="text-slate-800 font-mono">{selectedCell.demandLevel}%</span>
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${selectedCell.demandLevel}%`,
+                      background: selectedCell.demandLevel > 60 ? '#DC2626' : selectedCell.demandLevel > 30 ? '#D97706' : '#059669'
+                    }}
+                  />
+                </div>
+                <span className="text-slate-800 font-mono text-xs font-bold">{selectedCell.demandLevel}%</span>
+              </div>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-slate-500">EVs in Area</span>
-              <span className="text-slate-800 font-mono">{selectedCell.evCount}</span>
+              <span className="text-slate-800 font-mono font-bold">{selectedCell.evCount}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">H3 Index</span>
-              <span className="text-slate-400 font-mono text-xs">{selectedCell.h3Index.slice(0, 12)}…</span>
+            <div className="flex justify-between items-center pt-1 border-t border-slate-50">
+              <span className="text-slate-400 text-xs">H3 Index</span>
+              <span className="text-slate-400 font-mono text-[10px]">{selectedCell.h3Index.slice(0, 15)}…</span>
             </div>
           </div>
         </div>

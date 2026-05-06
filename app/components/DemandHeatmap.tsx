@@ -24,6 +24,19 @@ function getDemandOpacity(demand: number): number {
   return 0.2 + (demand / 100) * 0.5;
 }
 
+/** Safely call invalidateSize — guards against the _leaflet_pos race condition */
+function safeInvalidate(map: L.Map | null) {
+  if (!map) return;
+  try {
+    const container = map.getContainer();
+    if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
+      map.invalidateSize({ animate: false });
+    }
+  } catch {
+    // Map pane not ready yet — ignore
+  }
+}
+
 export default function DemandHeatmap({
   cells,
   demandSnapshot,
@@ -34,11 +47,13 @@ export default function DemandHeatmap({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
   const initRef = useRef(false);
+  const removedRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (initRef.current || !containerRef.current) return;
     initRef.current = true;
+    removedRef.current = false;
 
     const mapDiv = document.createElement('div');
     mapDiv.style.height = '100%';
@@ -46,45 +61,55 @@ export default function DemandHeatmap({
     containerRef.current.innerHTML = '';
     containerRef.current.appendChild(mapDiv);
 
-    import('leaflet').then((L) => {
-      const map = L.map(mapDiv, {
-        center: BANGALORE_CENTER,
-        zoom: 12,
-        zoomControl: true,
-      });
+    const rafId = requestAnimationFrame(() => {
+      if (removedRef.current) return;
 
-      L.tileLayer(TILE_URL, {
-        attribution: TILE_ATTRIBUTION,
-        maxZoom: 18,
-      }).addTo(map);
+      import('leaflet').then((L) => {
+        if (removedRef.current) return;
 
-      layerGroupRef.current = L.layerGroup().addTo(map);
-      mapInstanceRef.current = map;
-      setLoaded(true);
+        const map = L.map(mapDiv, {
+          center: BANGALORE_CENTER,
+          zoom: 12,
+          zoomControl: true,
+        });
 
-      const fitToData = () => {
-        map.invalidateSize();
-        if (cells.length > 0) {
-          const allLats = cells.flatMap((c) => c.boundary.map((p) => p.lat));
-          const allLngs = cells.flatMap((c) => c.boundary.map((p) => p.lng));
-          map.fitBounds(
-            [
-              [Math.min(...allLats), Math.min(...allLngs)],
-              [Math.max(...allLats), Math.max(...allLngs)],
-            ],
-            { padding: [20, 20] }
-          );
-        }
-      };
+        L.tileLayer(TILE_URL, {
+          attribution: TILE_ATTRIBUTION,
+          maxZoom: 18,
+        }).addTo(map);
 
-      map.whenReady(() => {
-        fitToData();
-        setTimeout(fitToData, 100);
-        setTimeout(fitToData, 500);
+        layerGroupRef.current = L.layerGroup().addTo(map);
+        mapInstanceRef.current = map;
+        setLoaded(true);
+
+        const fitToData = () => {
+          safeInvalidate(map);
+          if (cells.length > 0) {
+            try {
+              const allLats = cells.flatMap((c) => c.boundary.map((p) => p.lat));
+              const allLngs = cells.flatMap((c) => c.boundary.map((p) => p.lng));
+              map.fitBounds(
+                [
+                  [Math.min(...allLats), Math.min(...allLngs)],
+                  [Math.max(...allLats), Math.max(...allLngs)],
+                ],
+                { padding: [20, 20] }
+              );
+            } catch {
+              // Ignore invalid bounds
+            }
+          }
+        };
+
+        setTimeout(() => { if (!removedRef.current) fitToData(); }, 50);
+        setTimeout(() => { if (!removedRef.current) fitToData(); }, 300);
+        setTimeout(() => { if (!removedRef.current) fitToData(); }, 800);
       });
     });
 
     return () => {
+      cancelAnimationFrame(rafId);
+      removedRef.current = true;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -94,6 +119,7 @@ export default function DemandHeatmap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Update demand visualization
   useEffect(() => {
     if (!mapInstanceRef.current || !layerGroupRef.current || !loaded) return;
 
@@ -124,12 +150,12 @@ export default function DemandHeatmap({
         };
 
         polygon.bindTooltip(
-          `<div style="min-width: 140px;">
+          `<div style="min-width: 150px;">
             <div style="font-weight: 700; font-size: 13px; margin-bottom: 4px; color: #0f172a;">${cell.nearestArea}</div>
             <div style="color: #64748b; font-size: 12px;">
-              Predicted at <span style="color: #0f172a;">${formatHour(selectedHour)}</span>
+              Predicted at <span style="color: #0f172a; font-weight: 600;">${formatHour(selectedHour)}</span>
             </div>
-            <div style="color: ${color}; font-weight: 700; font-size: 16px; margin-top: 4px;">
+            <div style="color: ${color}; font-weight: 700; font-size: 18px; margin-top: 6px;">
               ${demand.toFixed(1)} kW
             </div>
             <div style="color: #94a3b8; font-size: 11px; text-transform: capitalize; margin-top: 2px;">
@@ -149,21 +175,21 @@ export default function DemandHeatmap({
   return (
     <div className="relative">
       <div className="map-container">
-        <div ref={containerRef} className="h-[50vh] min-h-[280px] max-h-[450px] w-full" />
+        <div ref={containerRef} className="h-[50vh] min-h-[280px] max-h-[460px] w-full" />
         {!loaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-slate-400 text-sm">Loading heatmap...</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-50/90 to-slate-100/90 rounded-xl">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-[3px] border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+              <span className="text-slate-400 text-sm font-medium">Loading Heatmap...</span>
             </div>
           </div>
         )}
       </div>
 
       {/* Color scale legend */}
-      <div className="flex items-center gap-3 mt-3 justify-center">
-        <span className="text-[10px] text-slate-400 uppercase tracking-wider">Low</span>
-        <div className="flex h-3 rounded-full overflow-hidden w-48">
+      <div className="flex items-center gap-3 mt-4 justify-center">
+        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Low</span>
+        <div className="flex h-2.5 rounded-full overflow-hidden w-48 shadow-inner">
           <div className="flex-1" style={{ background: '#1E40AF' }} />
           <div className="flex-1" style={{ background: '#3B82F6' }} />
           <div className="flex-1" style={{ background: '#10B981' }} />
@@ -171,7 +197,7 @@ export default function DemandHeatmap({
           <div className="flex-1" style={{ background: '#F97316' }} />
           <div className="flex-1" style={{ background: '#EF4444' }} />
         </div>
-        <span className="text-[10px] text-slate-400 uppercase tracking-wider">High</span>
+        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">High</span>
       </div>
     </div>
   );

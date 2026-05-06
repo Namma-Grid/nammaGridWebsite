@@ -11,10 +11,10 @@ import gridData from '@/bangalore-hex-grid.json';
 const DemandHeatmap = dynamic(() => import('@/app/components/DemandHeatmap'), {
   ssr: false,
   loading: () => (
-    <div className="h-[50vh] min-h-[320px] rounded-xl bg-slate-100 flex items-center justify-center">
-      <div className="flex items-center gap-3">
-        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <span className="text-slate-400 text-sm">Loading Demand Heatmap...</span>
+    <div className="h-[50vh] min-h-[320px] rounded-xl bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-[3px] border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+        <span className="text-slate-400 text-sm font-medium">Loading Demand Heatmap...</span>
       </div>
     </div>
   ),
@@ -23,7 +23,7 @@ const DemandHeatmap = dynamic(() => import('@/app/components/DemandHeatmap'), {
 const DemandChart = dynamic(() => import('@/app/components/DemandChart'), {
   ssr: false,
   loading: () => (
-    <div className="h-[250px] rounded-xl bg-slate-100 flex items-center justify-center">
+    <div className="h-[250px] rounded-xl bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center">
       <span className="text-slate-400 text-sm">Loading chart...</span>
     </div>
   ),
@@ -85,8 +85,8 @@ export default function DemandPage() {
         icon="📊"
         badge="Forecast"
       >
-        {/* Controls — stacked on mobile */}
-        <div className="grid gap-5 lg:grid-cols-[1fr_260px] mb-6">
+        {/* Controls — stacked on mobile, side-by-side on desktop */}
+        <div className="grid gap-5 lg:grid-cols-[1fr_280px] mb-6">
           <DateTimeSelector
             selectedDate={selectedDate}
             selectedHour={selectedHour}
@@ -99,7 +99,7 @@ export default function DemandPage() {
             <label className="text-xs text-slate-400 uppercase tracking-wider mb-2 block font-medium">
               Select Area
             </label>
-            <div className="max-h-[180px] overflow-y-auto space-y-1 pr-1">
+            <div className="max-h-[200px] overflow-y-auto space-y-0.5 pr-1 rounded-xl border border-slate-100 bg-white/60 p-1.5">
               {uniqueAreas.slice(0, 20).map((area) => (
                 <button
                   key={area.name}
@@ -107,25 +107,32 @@ export default function DemandPage() {
                     setSelectedDemandArea(area.name);
                     setSelectedDemandZone(area.zone);
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all flex items-center justify-between ${
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all flex items-center justify-between touch-manipulation ${
                     selectedDemandArea === area.name
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200 font-medium'
-                      : 'text-slate-500 hover:bg-slate-50 border border-transparent'
+                      ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
                   }`}
                 >
-                  <span>{area.name}</span>
-                  <span className="text-xs capitalize text-slate-400">{area.zone}</span>
+                  <span className="truncate">{area.name}</span>
+                  <span className={`text-[10px] capitalize px-2 py-0.5 rounded-full ml-2 shrink-0 ${
+                    selectedDemandArea === area.name
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-slate-50 text-slate-400'
+                  }`}>
+                    {area.zone}
+                  </span>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Dual viz — stacked on mobile */}
+        {/* Dual visualization — stacked on mobile */}
         <div className="grid gap-5 lg:grid-cols-2">
+          {/* Demand chart */}
           <div className="glass-card-static p-4 sm:p-5">
             <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <span className="text-amber-500">📈</span>
+              <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs">📈</span>
               24-Hour Demand Curve
             </h3>
             <DemandChart
@@ -135,9 +142,10 @@ export default function DemandPage() {
             />
           </div>
 
+          {/* Heatmap */}
           <div className="glass-card-static p-4 sm:p-5">
             <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2 flex-wrap">
-              <span className="text-red-500">🗺️</span>
+              <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white text-xs">🗺️</span>
               City-Wide Demand Heatmap
               <span className="badge badge-amber ml-auto">
                 {selectedHour < 12

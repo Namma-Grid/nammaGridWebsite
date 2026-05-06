@@ -51,13 +51,19 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
 
         {/* Footer */}
-        <footer className="border-t border-black/[0.06] py-6 px-6 text-center">
-          <p className="text-slate-500 text-sm">
-            <span className="text-slate-800 font-semibold">VoltRoute</span> — Spatio-Temporal Intelligence for Grid-Aware EV Infrastructure
-          </p>
-          <p className="text-slate-400 text-xs mt-1">
-            Built for BESCOM × AI for Bharat Hackathon 2026
-          </p>
+        <footer className="border-t border-slate-100 py-8 px-6">
+          <div className="max-w-7xl mx-auto text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-white text-xs">⚡</div>
+              <span className="text-slate-800 font-bold text-sm">VoltRoute</span>
+            </div>
+            <p className="text-slate-400 text-xs">
+              Spatio-Temporal Intelligence for Grid-Aware EV Infrastructure
+            </p>
+            <p className="text-slate-300 text-[11px] mt-2">
+              Built for BESCOM × AI for Bharat Hackathon 2026
+            </p>
+          </div>
         </footer>
       </body>
     </html>

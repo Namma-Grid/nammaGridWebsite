@@ -9,17 +9,32 @@ interface EVRouteMapProps {
   route: EVRoute | null;
 }
 
+/** Safely call invalidateSize — guards against the _leaflet_pos race condition */
+function safeInvalidate(map: L.Map | null) {
+  if (!map) return;
+  try {
+    const container = map.getContainer();
+    if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
+      map.invalidateSize({ animate: false });
+    }
+  } catch {
+    // Map pane not ready yet — ignore
+  }
+}
+
 export default function EVRouteMap({ route }: EVRouteMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
   const initRef = useRef(false);
+  const removedRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
 
   // ── Initialise Leaflet map once ─────────────────────────────────────────
   useEffect(() => {
     if (initRef.current || !containerRef.current) return;
     initRef.current = true;
+    removedRef.current = false;
 
     const mapDiv = document.createElement('div');
     mapDiv.style.height = '100%';
@@ -27,30 +42,37 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
     containerRef.current.innerHTML = '';
     containerRef.current.appendChild(mapDiv);
 
-    import('leaflet').then((L) => {
-      const map = L.map(mapDiv, {
-        center: BANGALORE_CENTER,
-        zoom: 12,
-        zoomControl: true,
-      });
+    const rafId = requestAnimationFrame(() => {
+      if (removedRef.current) return;
 
-      L.tileLayer(TILE_URL, {
-        attribution: TILE_ATTRIBUTION,
-        maxZoom: 18,
-      }).addTo(map);
+      import('leaflet').then((L) => {
+        if (removedRef.current) return;
 
-      layerGroupRef.current = L.layerGroup().addTo(map);
-      mapInstanceRef.current = map;
-      setLoaded(true);
+        const map = L.map(mapDiv, {
+          center: BANGALORE_CENTER,
+          zoom: 12,
+          zoomControl: true,
+        });
 
-      map.whenReady(() => {
-        map.invalidateSize();
-        setTimeout(() => map.invalidateSize(), 100);
-        setTimeout(() => map.invalidateSize(), 500);
+        L.tileLayer(TILE_URL, {
+          attribution: TILE_ATTRIBUTION,
+          maxZoom: 18,
+        }).addTo(map);
+
+        layerGroupRef.current = L.layerGroup().addTo(map);
+        mapInstanceRef.current = map;
+        setLoaded(true);
+
+        // Deferred sizing — safe guard against _leaflet_pos error
+        setTimeout(() => { if (!removedRef.current) safeInvalidate(map); }, 50);
+        setTimeout(() => { if (!removedRef.current) safeInvalidate(map); }, 300);
+        setTimeout(() => { if (!removedRef.current) safeInvalidate(map); }, 800);
       });
     });
 
     return () => {
+      cancelAnimationFrame(rafId);
+      removedRef.current = true;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -59,7 +81,6 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
     };
   }, []);
 
-  // ── Render route whenever it changes ────────────────────────────────────
   useEffect(() => {
     if (!mapInstanceRef.current || !layerGroupRef.current || !loaded) return;
 
@@ -74,31 +95,31 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
       // ① Colour-coded segments (green → red by EV density) ───────────────
       const maxEV = Math.max(...route.segments.map((s) => s.evCount));
 
+      // Route segments with EV-density color gradient
       route.segments.forEach((seg) => {
         const ratio = maxEV > 0 ? seg.evCount / maxEV : 0;
         const r = Math.round(ratio > 0.5 ? 255 : ratio * 2 * 255);
         const g = Math.round(ratio > 0.5 ? (1 - ratio) * 2 * 255 : 255);
         const color = `rgb(${r}, ${g}, 60)`;
 
-        L.polyline([seg.from, seg.to], {
+        const line = L.polyline([seg.from, seg.to], {
           color,
           weight: 6,
           opacity: 0.88,
           lineCap: 'round',
           lineJoin: 'round',
-        })
-          .addTo(lg)
-          .bindTooltip(`${seg.evCount} EVs on segment`, {
-            className: 'hex-tooltip',
-            sticky: true,
-          });
+        }).addTo(lg);
+
+        line.bindTooltip(`${seg.evCount} EVs on segment`, {
+          className: 'hex-tooltip',
+          sticky: true,
+        });
       });
 
-      // ② Thin dashed spine along the full path ───────────────────────────
       L.polyline(route.path, {
         color: '#2563EB',
         weight: 2,
-        opacity: 0.3,
+        opacity: 0.4,
         dashArray: '8, 12',
       }).addTo(lg);
 
@@ -143,8 +164,7 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
             width: 36px; height: 36px; border-radius: 50%;
             background: linear-gradient(135deg, #059669, #047857);
             border: 3px solid #fff; display: flex; align-items: center;
-            justify-content: center; font-size: 16px;
-            box-shadow: 0 4px 12px rgba(5,150,105,0.4);
+            justify-content: center; font-size: 16px; box-shadow: 0 4px 12px rgba(5,150,105,0.35);
           ">🟢</div>
         `,
         iconSize: [36, 36],
@@ -153,11 +173,7 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
 
       L.marker([route.origin.lat, route.origin.lng], { icon: originIcon })
         .addTo(lg)
-        .bindTooltip(`Start: ${route.origin.name}`, {
-          className: 'hex-tooltip',
-          direction: 'top',
-          offset: [0, -20],
-        });
+        .bindTooltip(`Start: ${route.origin.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -20] });
 
       // ⑤ Destination marker ───────────────────────────────────────────────
       const destIcon = L.divIcon({
@@ -167,8 +183,7 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
             width: 36px; height: 36px; border-radius: 50%;
             background: linear-gradient(135deg, #DC2626, #B91C1C);
             border: 3px solid #fff; display: flex; align-items: center;
-            justify-content: center; font-size: 16px;
-            box-shadow: 0 4px 12px rgba(220,38,38,0.4);
+            justify-content: center; font-size: 16px; box-shadow: 0 4px 12px rgba(220,38,38,0.35);
           ">📍</div>
         `,
         iconSize: [36, 36],
@@ -177,13 +192,9 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
 
       L.marker([route.destination.lat, route.destination.lng], { icon: destIcon })
         .addTo(lg)
-        .bindTooltip(`End: ${route.destination.name}`, {
-          className: 'hex-tooltip',
-          direction: 'top',
-          offset: [0, -20],
-        });
+        .bindTooltip(`End: ${route.destination.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -20] });
 
-      // ⑥ EV count floating labels (every 3rd segment midpoint) ────────────
+      // EV count labels
       route.segments.forEach((seg, i) => {
         if (i % 3 !== 1) return;
         const midLat = (seg.from[0] + seg.to[0]) / 2;
@@ -191,13 +202,7 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
 
         const evIcon = L.divIcon({
           className: '',
-          html: `
-            <div style="
-              background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.08);
-              border-radius: 8px; padding: 3px 8px; font-size: 11px; font-weight: 600;
-              color: #D97706; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            ">⚡${seg.evCount}</div>
-          `,
+          html: `<div style="background:rgba(255,255,255,0.96);border:1px solid rgba(0,0,0,0.06);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:#D97706;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.1);">⚡${seg.evCount}</div>`,
           iconSize: [50, 24],
           iconAnchor: [25, 12],
         });
@@ -205,31 +210,27 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
         L.marker([midLat, midLng], { icon: evIcon }).addTo(lg);
       });
 
-      // ⑦ Fit map bounds to the full route ────────────────────────────────
-      map.fitBounds(
-        route.path.map((p) => [p[0], p[1]]) as [number, number][],
-        { padding: [50, 50] },
-      );
+      map.fitBounds(route.path.map((p) => [p[0], p[1]]) as [number, number][], {
+        padding: [50, 50],
+      });
     });
   }, [route, loaded]);
 
   return (
     <div className="map-container relative">
       <div ref={containerRef} className="h-[50vh] min-h-[320px] max-h-[450px] w-full" />
-
       {!loaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 rounded-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-slate-400 text-sm">Loading map...</span>
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-50/90 to-slate-100/90 rounded-xl">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-[3px] border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+            <span className="text-slate-400 text-sm font-medium">Loading Route Map...</span>
           </div>
         </div>
       )}
-
       {!route && loaded && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="glass-card-static px-6 py-4 text-center">
-            <p className="text-slate-400 text-sm">Select origin &amp; destination to view route</p>
+            <p className="text-slate-400 text-sm">Select origin & destination to view route</p>
           </div>
         </div>
       )}
