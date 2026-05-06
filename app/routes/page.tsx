@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import SectionWrapper from '@/app/components/SectionWrapper';
 import LocationPicker from '@/app/components/LocationPicker';
@@ -23,10 +23,25 @@ const EVRouteMap = dynamic(() => import('@/app/components/EVRouteMap'), {
 export default function RoutesPage() {
   const [origin, setOrigin] = useState<LocationOption | null>(null);
   const [destination, setDestination] = useState<LocationOption | null>(null);
+  const [route, setRoute] = useState<EVRoute | null>(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
-  const route: EVRoute | null = useMemo(() => {
-    if (!origin || !destination || origin.id === destination.id) return null;
-    return generateRoute(origin.id, destination.id) as EVRoute | null;
+  useEffect(() => {
+    if (!origin || !destination || origin.id === destination.id) {
+      setRoute(null);
+      setLoadingRoute(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingRoute(true);
+    generateRoute(origin.id, destination.id).then((r) => {
+      if (cancelled) return;
+      setRoute(r);
+      setLoadingRoute(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [origin, destination]);
 
   return (
@@ -90,7 +105,7 @@ export default function RoutesPage() {
           </div>
 
           {/* Map */}
-          <EVRouteMap route={route} />
+          <EVRouteMap route={route} loading={loadingRoute} />
         </div>
       </SectionWrapper>
     </div>

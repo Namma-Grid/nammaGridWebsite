@@ -1,4 +1,13 @@
-import type { LocationOption } from '@/app/lib/types';
+import type {
+  ChargingStation,
+  EVRoute,
+  LocationOption,
+  RouteSegment,
+} from '@/app/lib/types';
+import { CHARGING_STATIONS } from '@/app/data/charging-stations';
+
+const OSRM_BASE = 'https://router.project-osrm.org';
+const STATION_PROXIMITY_KM = 1.5;
 
 // ─── Notable Bangalore locations for Uber/Ola-style picker ──────────────────
 
@@ -193,51 +202,153 @@ function interpolateSegment(
   return pts;
 }
 
-// ─── Public route generator ───────────────────────────────────────────────────
+// ─── Charging stations near a polyline ──────────────────────────────────────
 
-export function generateRoute(originId: string, destId: string) {
-  const origin = LOCATIONS.find((l) => l.id === originId);
-  const dest   = LOCATIONS.find((l) => l.id === destId);
-  if (!origin || !dest) return null;
+function findStationsOnPath(
+  path: [number, number][],
+  thresholdKm = STATION_PROXIMITY_KM,
+): ChargingStation[] {
+  return CHARGING_STATIONS.filter((s) => {
+    for (const [lat, lng] of path) {
+      if (haversineDistance(s.lat, s.lng, lat, lng) < thresholdKm) return true;
+    }
+    return false;
+  });
+}
 
-  // ① Find the shortest path (list of location IDs) via Dijkstra
-  const locationPath = dijkstra(originId, destId);
-  if (!locationPath || locationPath.length < 2) return null;
+// ─── EV count seeding (kept stable across OSRM + fallback paths) ────────────
 
-  // ② Build the full polyline + route segments by interpolating each graph edge
+function evCountFor(fromId: string, toId: string, stepIndex: number): number {
+  const seed = (fromId + toId)
+    .split('')
+    .reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return 5 + ((seed * (stepIndex + 1) * 17 + 49297) % 30);
+}
+
+// ─── OSRM road-following route ──────────────────────────────────────────────
+// Uses the public OSRM demo server (no key). Demo is rate-limited and not
+// SLA-backed; the synthetic Dijkstra path is the fallback if it fails.
+
+interface OSRMResponse {
+  code: string;
+  routes?: {
+    distance: number;
+    duration: number;
+    geometry: { coordinates: [number, number][] };
+    legs: {
+      steps: { geometry: { coordinates: [number, number][] } }[];
+    }[];
+  }[];
+}
+
+async function generateRouteFromOSRM(
+  origin: LocationOption,
+  dest: LocationOption,
+  locationPath: string[],
+): Promise<EVRoute> {
+  const waypoints = locationPath.map(
+    (id) => LOCATIONS.find((l) => l.id === id)!,
+  );
+  const coordStr = waypoints.map((l) => `${l.lng},${l.lat}`).join(';');
+  const url =
+    `${OSRM_BASE}/route/v1/driving/${coordStr}` +
+    `?overview=full&geometries=geojson&steps=true`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`OSRM HTTP ${res.status}`);
+  const data: OSRMResponse = await res.json();
+  if (data.code !== 'Ok' || !data.routes?.[0]) {
+    throw new Error(`OSRM code=${data.code}`);
+  }
+
+  const r = data.routes[0];
+  const fullPath: [number, number][] = r.geometry.coordinates.map(
+    ([lng, lat]) => [lat, lng] as [number, number],
+  );
+
+  const segments: RouteSegment[] = [];
+  r.legs.forEach((leg, legIdx) => {
+    const fromId = locationPath[legIdx];
+    const toId = locationPath[legIdx + 1];
+
+    const legCoords: [number, number][] = [];
+    leg.steps.forEach((step) => {
+      step.geometry.coordinates.forEach(([lng, lat]) => {
+        const last = legCoords[legCoords.length - 1];
+        if (!last || last[0] !== lat || last[1] !== lng) {
+          legCoords.push([lat, lng]);
+        }
+      });
+    });
+
+    for (let j = 0; j < legCoords.length - 1; j++) {
+      segments.push({
+        from: legCoords[j],
+        to: legCoords[j + 1],
+        evCount: evCountFor(fromId, toId, j),
+      });
+    }
+  });
+
+  const totalDistKm = r.distance / 1000;
+  const totalDurMin = r.duration / 60;
+  const totalEVs = segments.reduce((s, seg) => s + seg.evCount, 0);
+  const stationsOnPath = findStationsOnPath(fullPath);
+  const viaLocations = locationPath
+    .slice(1, -1)
+    .map((id) => LOCATIONS.find((l) => l.id === id)!.name);
+
+  return {
+    origin,
+    destination: dest,
+    path: fullPath,
+    totalEVs,
+    distance: Math.round(totalDistKm * 10) / 10,
+    estimatedTime: Math.round(totalDurMin),
+    hexesOnPath: locationPath,
+    chargingStations: stationsOnPath.length,
+    segments,
+    stationsOnPath,
+    viaLocations,
+  };
+}
+
+// ─── Synthetic fallback (straight-line hops + sinusoidal jitter) ────────────
+
+function generateSyntheticRoute(
+  origin: LocationOption,
+  dest: LocationOption,
+  locationPath: string[],
+): EVRoute {
   const fullPath: [number, number][] = [];
-  const segments: { from: [number, number]; to: [number, number]; evCount: number }[] = [];
+  const segments: RouteSegment[] = [];
 
   for (let i = 0; i < locationPath.length - 1; i++) {
     const fromLoc = LOCATIONS.find((l) => l.id === locationPath[i])!;
-    const toLoc   = LOCATIONS.find((l) => l.id === locationPath[i + 1])!;
+    const toLoc = LOCATIONS.find((l) => l.id === locationPath[i + 1])!;
 
     const edgeDist = haversineDistance(fromLoc.lat, fromLoc.lng, toLoc.lat, toLoc.lng);
-    const steps    = Math.max(4, Math.round(edgeDist * 2));
+    const steps = Math.max(4, Math.round(edgeDist * 2));
 
     const subPath = interpolateSegment(
       [fromLoc.lat, fromLoc.lng],
-      [toLoc.lat,   toLoc.lng],
+      [toLoc.lat, toLoc.lng],
       steps,
     );
 
-    // Avoid duplicating the junction node between hops
     if (i > 0) subPath.shift();
 
-    // Deterministic-ish EV count per sub-segment using a hash of the edge + step
-    const edgeSeed = (fromLoc.id + toLoc.id)
-      .split('')
-      .reduce((acc, c) => acc + c.charCodeAt(0), 0);
-
     for (let j = 0; j < subPath.length - 1; j++) {
-      const evCount = 5 + ((edgeSeed * (j + 1) * 17 + 49297) % 30);
-      segments.push({ from: subPath[j], to: subPath[j + 1], evCount });
+      segments.push({
+        from: subPath[j],
+        to: subPath[j + 1],
+        evCount: evCountFor(fromLoc.id, toLoc.id, j),
+      });
     }
 
     fullPath.push(...subPath);
   }
 
-  // ③ Compute true shortest-path distance (sum of hop distances)
   let totalDist = 0;
   for (let i = 1; i < locationPath.length; i++) {
     const a = LOCATIONS.find((l) => l.id === locationPath[i - 1])!;
@@ -246,8 +357,7 @@ export function generateRoute(originId: string, destId: string) {
   }
 
   const totalEVs = segments.reduce((s, seg) => s + seg.evCount, 0);
-
-  // Intermediate stop names (exclude origin and destination)
+  const stationsOnPath = findStationsOnPath(fullPath);
   const viaLocations = locationPath
     .slice(1, -1)
     .map((id) => LOCATIONS.find((l) => l.id === id)!.name);
@@ -258,10 +368,32 @@ export function generateRoute(originId: string, destId: string) {
     path: fullPath,
     totalEVs,
     distance: Math.round(totalDist * 10) / 10,
-    estimatedTime: Math.round((totalDist / 25) * 60),   // ~25 km/h city avg
-    hexesOnPath: locationPath,                           // IDs of nodes on path
-    chargingStations: Math.floor(totalDist / 3) + 1,
+    estimatedTime: Math.round((totalDist / 25) * 60),
+    hexesOnPath: locationPath,
+    chargingStations: stationsOnPath.length,
     segments,
+    stationsOnPath,
     viaLocations,
   };
+}
+
+// ─── Public route generator ───────────────────────────────────────────────────
+
+export async function generateRoute(
+  originId: string,
+  destId: string,
+): Promise<EVRoute | null> {
+  const origin = LOCATIONS.find((l) => l.id === originId);
+  const dest = LOCATIONS.find((l) => l.id === destId);
+  if (!origin || !dest) return null;
+
+  const locationPath = dijkstra(originId, destId);
+  if (!locationPath || locationPath.length < 2) return null;
+
+  try {
+    return await generateRouteFromOSRM(origin, dest, locationPath);
+  } catch (err) {
+    console.warn('[ev-routes] OSRM failed, using synthetic fallback:', err);
+    return generateSyntheticRoute(origin, dest, locationPath);
+  }
 }

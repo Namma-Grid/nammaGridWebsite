@@ -50,6 +50,7 @@ export interface EVRoute {
   hexesOnPath: string[];    // location IDs along the shortest path
   chargingStations: number;
   segments: RouteSegment[];
+  stationsOnPath: ChargingStation[];
   viaLocations: string[];   // intermediate location names (graph hops)
 }
 
@@ -57,6 +58,15 @@ export interface RouteSegment {
   from: [number, number];
   to: [number, number];
   evCount: number;
+}
+
+export interface ChargingStation {
+  id: string;
+  name: string;
+  operator: string;
+  kw: number;
+  lat: number;
+  lng: number;
 }
 
 // ─── Demand Prediction ──────────────────────────────────────────────────────

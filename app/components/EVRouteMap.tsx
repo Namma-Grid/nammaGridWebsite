@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { BANGALORE_CENTER, TILE_URL, TILE_ATTRIBUTION } from '@/app/lib/map-config';
 import type { EVRoute, LocationOption } from '@/app/lib/types';
-import { LOCATIONS } from '@/app/data/ev-routes';
 
 interface EVRouteMapProps {
   route: EVRoute | null;
+  loading?: boolean;
 }
 
 /** Safely call invalidateSize — guards against the _leaflet_pos race condition */
@@ -22,7 +22,7 @@ function safeInvalidate(map: L.Map | null) {
   }
 }
 
-export default function EVRouteMap({ route }: EVRouteMapProps) {
+export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
@@ -123,37 +123,30 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
         dashArray: '8, 12',
       }).addTo(lg);
 
-      // ③ Intermediate waypoint markers (Dijkstra graph hops) ─────────────
-      // hexesOnPath holds the location IDs along the shortest path
-      const viaIds: string[] = (route.hexesOnPath ?? []).slice(1, -1);
-      viaIds.forEach((locId) => {
-        const loc = LOCATIONS.find((l) => l.id === locId);
-        if (!loc) return;
-
-        const waypointIcon = L.divIcon({
+      // ③ Charging station markers along the route ────────────────────────
+      route.stationsOnPath.forEach((station) => {
+        const stationIcon = L.divIcon({
           className: '',
           html: `
             <div style="
-              width: 22px; height: 22px; border-radius: 50%;
-              background: linear-gradient(135deg, #6366F1, #4F46E5);
-              border: 2.5px solid #fff;
-              box-shadow: 0 2px 8px rgba(99,102,241,0.45);
+              width: 26px; height: 26px; border-radius: 6px;
+              background: linear-gradient(135deg, #10B981, #059669);
+              border: 2px solid #fff;
+              box-shadow: 0 2px 8px rgba(16,185,129,0.45);
               display: flex; align-items: center; justify-content: center;
-            ">
-              <div style="width: 6px; height: 6px; border-radius: 50%; background: #fff;"></div>
-            </div>
+              font-size: 13px; line-height: 1;
+            ">⚡</div>
           `,
-          iconSize: [22, 22],
-          iconAnchor: [11, 11],
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
         });
 
-        L.marker([loc.lat, loc.lng], { icon: waypointIcon })
+        L.marker([station.lat, station.lng], { icon: stationIcon })
           .addTo(lg)
-          .bindTooltip(`Via: ${loc.name}`, {
-            className: 'hex-tooltip',
-            direction: 'top',
-            offset: [0, -14],
-          });
+          .bindTooltip(
+            `<strong>${station.name}</strong><br/>${station.operator} · ${station.kw} kW`,
+            { className: 'hex-tooltip', direction: 'top', offset: [0, -14] },
+          );
       });
 
       // ④ Origin marker ────────────────────────────────────────────────────
@@ -194,22 +187,6 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
         .addTo(lg)
         .bindTooltip(`End: ${route.destination.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -20] });
 
-      // EV count labels
-      route.segments.forEach((seg, i) => {
-        if (i % 3 !== 1) return;
-        const midLat = (seg.from[0] + seg.to[0]) / 2;
-        const midLng = (seg.from[1] + seg.to[1]) / 2;
-
-        const evIcon = L.divIcon({
-          className: '',
-          html: `<div style="background:rgba(255,255,255,0.96);border:1px solid rgba(0,0,0,0.06);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:#D97706;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.1);">⚡${seg.evCount}</div>`,
-          iconSize: [50, 24],
-          iconAnchor: [25, 12],
-        });
-
-        L.marker([midLat, midLng], { icon: evIcon }).addTo(lg);
-      });
-
       map.fitBounds(route.path.map((p) => [p[0], p[1]]) as [number, number][], {
         padding: [50, 50],
       });
@@ -227,10 +204,22 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
           </div>
         </div>
       )}
-      {!route && loaded && (
+
+      {!route && loaded && !loading && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="glass-card-static px-6 py-4 text-center">
             <p className="text-slate-400 text-sm">Select origin & destination to view route</p>
+          </div>
+        </div>
+      )}
+
+      {loading && loaded && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[400] pointer-events-none">
+          <div className="glass-card-static px-4 py-2 flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-slate-500 text-xs font-medium">
+              Calculating route along real roads…
+            </span>
           </div>
         </div>
       )}
