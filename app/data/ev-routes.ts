@@ -29,26 +29,66 @@ export const LOCATIONS: LocationOption[] = [
   { id: 'hennur',       name: 'Hennur',                lat: 13.0320,  lng: 77.6380,  area: 'Hennur' },
 ];
 
-// ─── Generate a realistic route between two points ──────────────────────────
+// ─── Bangalore Road Network Graph ───────────────────────────────────────────
+// Undirected edges representing major road connections between localities.
+// Edge weights are computed from Haversine distance at graph-build time.
 
-function interpolatePath(
-  from: [number, number],
-  to: [number, number],
-  steps: number = 12
-): [number, number][] {
-  const path: [number, number][] = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    // Add slight curve for realism
-    const jitterLat = Math.sin(t * Math.PI) * (Math.random() * 0.004 - 0.002);
-    const jitterLng = Math.sin(t * Math.PI) * (Math.random() * 0.004 - 0.002);
-    path.push([
-      from[0] + (to[0] - from[0]) * t + jitterLat,
-      from[1] + (to[1] - from[1]) * t + jitterLng,
-    ]);
-  }
-  return path;
-}
+const EDGES: [string, string][] = [
+  // Central / MG Road corridor
+  ['mgroad',       'shivajinagar'],
+  ['mgroad',       'indiranagar'],
+  ['mgroad',       'koramangala'],
+  ['mgroad',       'majestic'],
+  ['shivajinagar', 'majestic'],
+  ['shivajinagar', 'malleshwaram'],
+  ['shivajinagar', 'manyata'],
+
+  // North corridor
+  ['majestic',     'malleshwaram'],
+  ['majestic',     'rajajinagar'],
+  ['malleshwaram', 'rajajinagar'],
+  ['malleshwaram', 'hebbal'],
+  ['hebbal',       'manyata'],
+  ['hebbal',       'yelahanka'],
+  ['manyata',      'hennur'],
+
+  // East / Indiranagar corridor
+  ['indiranagar',  'koramangala'],
+  ['indiranagar',  'marathahalli'],
+  ['indiranagar',  'hennur'],
+  ['marathahalli', 'whitefield'],
+  ['marathahalli', 'orr'],
+  ['whitefield',   'orr'],
+  ['orr',          'sarjapur'],
+
+  // South / Koramangala corridor
+  ['koramangala',  'btm'],
+  ['koramangala',  'silkboard'],
+  ['koramangala',  'hsr'],
+  ['btm',          'silkboard'],
+  ['btm',          'jayanagar'],
+  ['btm',          'bommanahalli'],
+  ['btm',          'hsr'],
+  ['hsr',          'silkboard'],
+  ['hsr',          'sarjapur'],
+  ['hsr',          'bommanahalli'],
+  ['silkboard',    'bommanahalli'],
+
+  // South-West / Jayanagar corridor
+  ['jayanagar',    'jpnagar'],
+  ['jayanagar',    'banashankari'],
+  ['jpnagar',      'banashankari'],
+  ['jpnagar',      'bannerghatta'],
+  ['banashankari', 'bannerghatta'],
+
+  // South / Electronic City corridor
+  ['bannerghatta', 'bommanahalli'],
+  ['bommanahalli', 'ecity'],
+  ['sarjapur',     'ecity'],
+  ['ecity',        'bannerghatta'],
+];
+
+// ─── Utilities ───────────────────────────────────────────────────────────────
 
 function haversineDistance(
   lat1: number, lng1: number,
@@ -65,43 +105,163 @@ function haversineDistance(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ─── Graph Construction ───────────────────────────────────────────────────────
+
+type AdjList = Map<string, { id: string; dist: number }[]>;
+
+function buildGraph(): AdjList {
+  const graph: AdjList = new Map();
+  for (const loc of LOCATIONS) graph.set(loc.id, []);
+
+  for (const [a, b] of EDGES) {
+    const locA = LOCATIONS.find((l) => l.id === a);
+    const locB = LOCATIONS.find((l) => l.id === b);
+    if (!locA || !locB) continue;
+    const dist = haversineDistance(locA.lat, locA.lng, locB.lat, locB.lng);
+    graph.get(a)!.push({ id: b, dist });
+    graph.get(b)!.push({ id: a, dist });
+  }
+  return graph;
+}
+
+// ─── Dijkstra's Shortest Path ────────────────────────────────────────────────
+
+function dijkstra(originId: string, destId: string): string[] | null {
+  const graph = buildGraph();
+  const dist = new Map<string, number>();
+  const prev = new Map<string, string | null>();
+  const visited = new Set<string>();
+
+  for (const loc of LOCATIONS) {
+    dist.set(loc.id, Infinity);
+    prev.set(loc.id, null);
+  }
+  dist.set(originId, 0);
+
+  // Min-heap via sorted array — fine for N=24 nodes
+  const queue: { id: string; cost: number }[] = [{ id: originId, cost: 0 }];
+
+  while (queue.length > 0) {
+    queue.sort((a, b) => a.cost - b.cost);
+    const { id: current } = queue.shift()!;
+
+    if (visited.has(current)) continue;
+    visited.add(current);
+    if (current === destId) break;
+
+    for (const { id: neighbor, dist: edgeDist } of graph.get(current) ?? []) {
+      if (visited.has(neighbor)) continue;
+      const newDist = dist.get(current)! + edgeDist;
+      if (newDist < dist.get(neighbor)!) {
+        dist.set(neighbor, newDist);
+        prev.set(neighbor, current);
+        queue.push({ id: neighbor, cost: newDist });
+      }
+    }
+  }
+
+  if (dist.get(destId) === Infinity) return null; // no path
+
+  // Reconstruct
+  const path: string[] = [];
+  let cur: string | null = destId;
+  while (cur !== null) {
+    path.unshift(cur);
+    cur = prev.get(cur) ?? null;
+  }
+  return path;
+}
+
+// ─── Path interpolation between two lat/lng points ──────────────────────────
+
+function interpolateSegment(
+  from: [number, number],
+  to: [number, number],
+  steps: number,
+): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    // Slight sinusoidal jitter to mimic road curves
+    const jLat = Math.sin(t * Math.PI) * (Math.random() * 0.003 - 0.0015);
+    const jLng = Math.sin(t * Math.PI) * (Math.random() * 0.003 - 0.0015);
+    pts.push([
+      from[0] + (to[0] - from[0]) * t + jLat,
+      from[1] + (to[1] - from[1]) * t + jLng,
+    ]);
+  }
+  return pts;
+}
+
+// ─── Public route generator ───────────────────────────────────────────────────
+
 export function generateRoute(originId: string, destId: string) {
   const origin = LOCATIONS.find((l) => l.id === originId);
-  const dest = LOCATIONS.find((l) => l.id === destId);
+  const dest   = LOCATIONS.find((l) => l.id === destId);
   if (!origin || !dest) return null;
 
-  const dist = haversineDistance(origin.lat, origin.lng, dest.lat, dest.lng);
-  const steps = Math.max(8, Math.round(dist * 2));
-  const path = interpolatePath(
-    [origin.lat, origin.lng],
-    [dest.lat, dest.lng],
-    steps
-  );
+  // ① Find the shortest path (list of location IDs) via Dijkstra
+  const locationPath = dijkstra(originId, destId);
+  if (!locationPath || locationPath.length < 2) return null;
 
-  // Seed-based random for consistent results per route pair
-  const seed = (origin.id + dest.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const seededRandom = (n: number) => ((seed * 9301 + 49297) % 233280) / 233280 * n;
+  // ② Build the full polyline + route segments by interpolating each graph edge
+  const fullPath: [number, number][] = [];
+  const segments: { from: [number, number]; to: [number, number]; evCount: number }[] = [];
 
-  const segments = [];
-  for (let i = 0; i < path.length - 1; i++) {
-    segments.push({
-      from: path[i],
-      to: path[i + 1],
-      evCount: Math.floor(seededRandom(25) + 3 + Math.random() * 15),
-    });
+  for (let i = 0; i < locationPath.length - 1; i++) {
+    const fromLoc = LOCATIONS.find((l) => l.id === locationPath[i])!;
+    const toLoc   = LOCATIONS.find((l) => l.id === locationPath[i + 1])!;
+
+    const edgeDist = haversineDistance(fromLoc.lat, fromLoc.lng, toLoc.lat, toLoc.lng);
+    const steps    = Math.max(4, Math.round(edgeDist * 2));
+
+    const subPath = interpolateSegment(
+      [fromLoc.lat, fromLoc.lng],
+      [toLoc.lat,   toLoc.lng],
+      steps,
+    );
+
+    // Avoid duplicating the junction node between hops
+    if (i > 0) subPath.shift();
+
+    // Deterministic-ish EV count per sub-segment using a hash of the edge + step
+    const edgeSeed = (fromLoc.id + toLoc.id)
+      .split('')
+      .reduce((acc, c) => acc + c.charCodeAt(0), 0);
+
+    for (let j = 0; j < subPath.length - 1; j++) {
+      const evCount = 5 + ((edgeSeed * (j + 1) * 17 + 49297) % 30);
+      segments.push({ from: subPath[j], to: subPath[j + 1], evCount });
+    }
+
+    fullPath.push(...subPath);
+  }
+
+  // ③ Compute true shortest-path distance (sum of hop distances)
+  let totalDist = 0;
+  for (let i = 1; i < locationPath.length; i++) {
+    const a = LOCATIONS.find((l) => l.id === locationPath[i - 1])!;
+    const b = LOCATIONS.find((l) => l.id === locationPath[i])!;
+    totalDist += haversineDistance(a.lat, a.lng, b.lat, b.lng);
   }
 
   const totalEVs = segments.reduce((s, seg) => s + seg.evCount, 0);
 
+  // Intermediate stop names (exclude origin and destination)
+  const viaLocations = locationPath
+    .slice(1, -1)
+    .map((id) => LOCATIONS.find((l) => l.id === id)!.name);
+
   return {
     origin,
     destination: dest,
-    path,
+    path: fullPath,
     totalEVs,
-    distance: Math.round(dist * 10) / 10,
-    estimatedTime: Math.round((dist / 25) * 60),  // ~25km/h city avg
-    hexesOnPath: path.map((_, i) => `seg_${i}`),
-    chargingStations: Math.floor(dist / 3) + 1,
+    distance: Math.round(totalDist * 10) / 10,
+    estimatedTime: Math.round((totalDist / 25) * 60),   // ~25 km/h city avg
+    hexesOnPath: locationPath,                           // IDs of nodes on path
+    chargingStations: Math.floor(totalDist / 3) + 1,
     segments,
+    viaLocations,
   };
 }

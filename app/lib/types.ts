@@ -47,9 +47,10 @@ export interface EVRoute {
   totalEVs: number;
   distance: number;         // km
   estimatedTime: number;    // minutes
-  hexesOnPath: string[];
+  hexesOnPath: string[];    // location IDs along the shortest path
   chargingStations: number;
   segments: RouteSegment[];
+  viaLocations: string[];   // intermediate location names (graph hops)
 }
 
 export interface RouteSegment {

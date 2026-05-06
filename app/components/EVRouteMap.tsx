@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { BANGALORE_CENTER, TILE_URL, TILE_ATTRIBUTION } from '@/app/lib/map-config';
-import type { EVRoute } from '@/app/lib/types';
+import type { EVRoute, LocationOption } from '@/app/lib/types';
+import { LOCATIONS } from '@/app/data/ev-routes';
 
 interface EVRouteMapProps {
   route: EVRoute | null;
@@ -15,6 +16,7 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
   const initRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
 
+  // ── Initialise Leaflet map once ─────────────────────────────────────────
   useEffect(() => {
     if (initRef.current || !containerRef.current) return;
     initRef.current = true;
@@ -57,6 +59,7 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
     };
   }, []);
 
+  // ── Render route whenever it changes ────────────────────────────────────
   useEffect(() => {
     if (!mapInstanceRef.current || !layerGroupRef.current || !loaded) return;
 
@@ -68,35 +71,71 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
       lg.clearLayers();
       if (!route) return;
 
+      // ① Colour-coded segments (green → red by EV density) ───────────────
+      const maxEV = Math.max(...route.segments.map((s) => s.evCount));
+
       route.segments.forEach((seg) => {
-        const maxEV = Math.max(...route.segments.map((s) => s.evCount));
-        const ratio = seg.evCount / maxEV;
+        const ratio = maxEV > 0 ? seg.evCount / maxEV : 0;
         const r = Math.round(ratio > 0.5 ? 255 : ratio * 2 * 255);
         const g = Math.round(ratio > 0.5 ? (1 - ratio) * 2 * 255 : 255);
         const color = `rgb(${r}, ${g}, 60)`;
 
-        const line = L.polyline([seg.from, seg.to], {
+        L.polyline([seg.from, seg.to], {
           color,
-          weight: 5,
-          opacity: 0.85,
+          weight: 6,
+          opacity: 0.88,
           lineCap: 'round',
           lineJoin: 'round',
-        }).addTo(lg);
-
-        line.bindTooltip(`${seg.evCount} EVs on segment`, {
-          className: 'hex-tooltip',
-          sticky: true,
-        });
+        })
+          .addTo(lg)
+          .bindTooltip(`${seg.evCount} EVs on segment`, {
+            className: 'hex-tooltip',
+            sticky: true,
+          });
       });
 
+      // ② Thin dashed spine along the full path ───────────────────────────
       L.polyline(route.path, {
         color: '#2563EB',
         weight: 2,
-        opacity: 0.4,
+        opacity: 0.3,
         dashArray: '8, 12',
       }).addTo(lg);
 
-      // Origin marker
+      // ③ Intermediate waypoint markers (Dijkstra graph hops) ─────────────
+      // hexesOnPath holds the location IDs along the shortest path
+      const viaIds: string[] = (route.hexesOnPath ?? []).slice(1, -1);
+      viaIds.forEach((locId) => {
+        const loc = LOCATIONS.find((l) => l.id === locId);
+        if (!loc) return;
+
+        const waypointIcon = L.divIcon({
+          className: '',
+          html: `
+            <div style="
+              width: 22px; height: 22px; border-radius: 50%;
+              background: linear-gradient(135deg, #6366F1, #4F46E5);
+              border: 2.5px solid #fff;
+              box-shadow: 0 2px 8px rgba(99,102,241,0.45);
+              display: flex; align-items: center; justify-content: center;
+            ">
+              <div style="width: 6px; height: 6px; border-radius: 50%; background: #fff;"></div>
+            </div>
+          `,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        });
+
+        L.marker([loc.lat, loc.lng], { icon: waypointIcon })
+          .addTo(lg)
+          .bindTooltip(`Via: ${loc.name}`, {
+            className: 'hex-tooltip',
+            direction: 'top',
+            offset: [0, -14],
+          });
+      });
+
+      // ④ Origin marker ────────────────────────────────────────────────────
       const originIcon = L.divIcon({
         className: '',
         html: `
@@ -104,7 +143,8 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
             width: 36px; height: 36px; border-radius: 50%;
             background: linear-gradient(135deg, #059669, #047857);
             border: 3px solid #fff; display: flex; align-items: center;
-            justify-content: center; font-size: 16px; box-shadow: 0 4px 12px rgba(5,150,105,0.35);
+            justify-content: center; font-size: 16px;
+            box-shadow: 0 4px 12px rgba(5,150,105,0.4);
           ">🟢</div>
         `,
         iconSize: [36, 36],
@@ -113,9 +153,13 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
 
       L.marker([route.origin.lat, route.origin.lng], { icon: originIcon })
         .addTo(lg)
-        .bindTooltip(`Start: ${route.origin.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -20] });
+        .bindTooltip(`Start: ${route.origin.name}`, {
+          className: 'hex-tooltip',
+          direction: 'top',
+          offset: [0, -20],
+        });
 
-      // Destination marker
+      // ⑤ Destination marker ───────────────────────────────────────────────
       const destIcon = L.divIcon({
         className: '',
         html: `
@@ -123,7 +167,8 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
             width: 36px; height: 36px; border-radius: 50%;
             background: linear-gradient(135deg, #DC2626, #B91C1C);
             border: 3px solid #fff; display: flex; align-items: center;
-            justify-content: center; font-size: 16px; box-shadow: 0 4px 12px rgba(220,38,38,0.35);
+            justify-content: center; font-size: 16px;
+            box-shadow: 0 4px 12px rgba(220,38,38,0.4);
           ">📍</div>
         `,
         iconSize: [36, 36],
@@ -132,9 +177,13 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
 
       L.marker([route.destination.lat, route.destination.lng], { icon: destIcon })
         .addTo(lg)
-        .bindTooltip(`End: ${route.destination.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -20] });
+        .bindTooltip(`End: ${route.destination.name}`, {
+          className: 'hex-tooltip',
+          direction: 'top',
+          offset: [0, -20],
+        });
 
-      // EV count labels
+      // ⑥ EV count floating labels (every 3rd segment midpoint) ────────────
       route.segments.forEach((seg, i) => {
         if (i % 3 !== 1) return;
         const midLat = (seg.from[0] + seg.to[0]) / 2;
@@ -156,15 +205,18 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
         L.marker([midLat, midLng], { icon: evIcon }).addTo(lg);
       });
 
-      map.fitBounds(route.path.map((p) => [p[0], p[1]]) as [number, number][], {
-        padding: [50, 50],
-      });
+      // ⑦ Fit map bounds to the full route ────────────────────────────────
+      map.fitBounds(
+        route.path.map((p) => [p[0], p[1]]) as [number, number][],
+        { padding: [50, 50] },
+      );
     });
   }, [route, loaded]);
 
   return (
     <div className="map-container relative">
       <div ref={containerRef} className="h-[50vh] min-h-[320px] max-h-[450px] w-full" />
+
       {!loaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 rounded-xl">
           <div className="flex items-center gap-3">
@@ -173,10 +225,11 @@ export default function EVRouteMap({ route }: EVRouteMapProps) {
           </div>
         </div>
       )}
+
       {!route && loaded && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="glass-card-static px-6 py-4 text-center">
-            <p className="text-slate-400 text-sm">Select origin & destination to view route</p>
+            <p className="text-slate-400 text-sm">Select origin &amp; destination to view route</p>
           </div>
         </div>
       )}
