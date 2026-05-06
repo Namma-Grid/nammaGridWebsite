@@ -9,6 +9,8 @@ const NAV_LINKS = [
   { href: '/hexgrid', label: 'Hex Grid', icon: '⬡' },
   { href: '/routes', label: 'EV Routes', icon: '⚡' },
   { href: '/demand', label: 'Demand Forecast', icon: '📊' },
+  { href: '/schedule', label: 'Scheduler', icon: '⏱️' },
+  { href: '/infrastructure', label: 'Infra Planner', icon: '🏗️' },
 ];
 
 export default function Navbar() {

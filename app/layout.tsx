@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/app/components/Navbar";
+import ChatBot from "@/app/components/ChatBot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,6 +50,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col gradient-bg bg-grid-pattern">
         <Navbar />
         <main className="flex-1">{children}</main>
+        <ChatBot />
 
         {/* Footer */}
         <footer className="border-t border-slate-100 py-8 px-6">

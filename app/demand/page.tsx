@@ -4,7 +4,8 @@ import { useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import SectionWrapper from '@/app/components/SectionWrapper';
 import DateTimeSelector from '@/app/components/DateTimeSelector';
-import { generate24hPrediction, generateDemandSnapshot } from '@/app/data/demand-predictions';
+import { generateDemandSnapshot } from '@/app/data/demand-predictions';
+import AgentInsights from '@/app/components/AgentInsights';
 import type { HexCell } from '@/app/lib/types';
 import gridData from '@/bangalore-hex-grid.json';
 
@@ -16,15 +17,6 @@ const DemandHeatmap = dynamic(() => import('@/app/components/DemandHeatmap'), {
         <div className="w-8 h-8 border-[3px] border-amber-200 border-t-amber-500 rounded-full animate-spin" />
         <span className="text-slate-400 text-sm font-medium">Loading Demand Heatmap...</span>
       </div>
-    </div>
-  ),
-});
-
-const DemandChart = dynamic(() => import('@/app/components/DemandChart'), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[250px] rounded-xl bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center">
-      <span className="text-slate-400 text-sm">Loading chart...</span>
     </div>
   ),
 });
@@ -56,11 +48,6 @@ export default function DemandPage() {
   const demandSnapshot = useMemo(
     () => generateDemandSnapshot(cells, selectedHour),
     [cells, selectedHour]
-  );
-
-  const chartData = useMemo(
-    () => generate24hPrediction(selectedDemandZone, selectedDemandArea, selectedDate),
-    [selectedDemandZone, selectedDemandArea, selectedDate]
   );
 
   const uniqueAreas = useMemo(() => {
@@ -129,18 +116,12 @@ export default function DemandPage() {
 
         {/* Dual visualization — stacked on mobile */}
         <div className="grid gap-5 lg:grid-cols-2">
-          {/* Demand chart */}
-          <div className="glass-card-static p-4 sm:p-5">
-            <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs">📈</span>
-              24-Hour Demand Curve
-            </h3>
-            <DemandChart
-              data={chartData}
-              areaName={selectedDemandArea}
-              zoneName={selectedDemandZone}
-            />
-          </div>
+          <AgentInsights
+            area={selectedDemandArea}
+            zone={selectedDemandZone}
+            dateOffset={selectedDate}
+            hour={selectedHour}
+          />
 
           {/* Heatmap */}
           <div className="glass-card-static p-4 sm:p-5">

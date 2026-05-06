@@ -12,6 +12,7 @@ const FEATURES = [
     bg: 'bg-gradient-to-br from-blue-50 to-indigo-50',
     border: 'border-blue-100/60',
     iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-500',
+    badge: null,
   },
   {
     href: '/routes',
@@ -23,17 +24,43 @@ const FEATURES = [
     bg: 'bg-gradient-to-br from-emerald-50 to-teal-50',
     border: 'border-emerald-100/60',
     iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-500',
+    badge: null,
   },
   {
     href: '/demand',
     icon: '📊',
     title: 'Grid Demand Prediction',
     description:
-      'AI-driven 24-hour demand forecasting with interactive heatmaps and time-series analysis by zone.',
+      'AI-driven 24-hour demand forecasting powered by the BESCOM EV Agent. Interactive heatmaps and real-time zone analysis.',
     color: 'text-amber-600',
     bg: 'bg-gradient-to-br from-amber-50 to-orange-50',
     border: 'border-amber-100/60',
     iconBg: 'bg-gradient-to-br from-amber-500 to-orange-500',
+    badge: 'Part A',
+  },
+  {
+    href: '/schedule',
+    icon: '⏱️',
+    title: 'Charging Schedule Optimizer',
+    description:
+      'AI recommendations for optimal EV charging windows. Reduce peak load, lower costs, and align with grid capacity — no infrastructure changes.',
+    color: 'text-purple-600',
+    bg: 'bg-gradient-to-br from-purple-50 to-violet-50',
+    border: 'border-purple-100/60',
+    iconBg: 'bg-gradient-to-br from-purple-500 to-violet-500',
+    badge: 'Part A',
+  },
+  {
+    href: '/infrastructure',
+    icon: '🏗️',
+    title: 'Infrastructure Location Planner',
+    description:
+      'Identify priority zones and optimal locations for new charging stations. AI-powered site selection with demand growth and grid constraint analysis.',
+    color: 'text-rose-600',
+    bg: 'bg-gradient-to-br from-rose-50 to-pink-50',
+    border: 'border-rose-100/60',
+    iconBg: 'bg-gradient-to-br from-rose-500 to-pink-500',
+    badge: 'Part B',
   },
 ];
 
@@ -86,7 +113,7 @@ export default function HomePage() {
       </div>
 
       {/* Feature Cards */}
-      <div className="mt-10 sm:mt-14 grid gap-4 sm:gap-5 md:grid-cols-3">
+      <div className="mt-10 sm:mt-14 grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((f) => (
           <Link
             key={f.href}
@@ -97,8 +124,13 @@ export default function HomePage() {
             <div className={`absolute inset-0 ${f.bg} opacity-50 group-hover:opacity-80 transition-opacity`} />
 
             <div className="relative">
-              <div className={`w-12 h-12 rounded-xl ${f.iconBg} flex items-center justify-center text-white text-2xl mb-5 shadow-md`}>
-                {f.icon}
+              <div className="flex items-start justify-between mb-5">
+                <div className={`w-12 h-12 rounded-xl ${f.iconBg} flex items-center justify-center text-white text-2xl shadow-md`}>
+                  {f.icon}
+                </div>
+                {f.badge && (
+                  <span className="badge badge-blue text-xs">{f.badge}</span>
+                )}
               </div>
               <h2 className={`text-lg font-bold mb-2 ${f.color}`}>{f.title}</h2>
               <p className="text-sm text-slate-500 leading-relaxed">{f.description}</p>
