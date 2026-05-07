@@ -1,5 +1,9 @@
+const AGENT_BASE = (
+  process.env.NEXT_PUBLIC_BESCOM_AGENT_URL ?? 'https://bescom-ev-agent.vercel.app'
+).replace(/\/$/, '');
+
 export async function queryAgent(message: string): Promise<string> {
-  const res = await fetch('https://bescom-ev-agent.vercel.app/agent/chat', {
+  const res = await fetch(`${AGENT_BASE}/agent/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
