@@ -448,3 +448,512 @@ body {
 @media (min-width: 1024px) {
   .page-container { padding: 6rem 2.5rem 3rem; }
 }
+
+/* ─── 3D Explorer ─────────────────────────────────────────────────────────── */
+
+.explore-page {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.explore-loader {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 40%, #f0fdf4 70%, #f8fafc 100%);
+  z-index: 100;
+}
+
+/* ─── HUD Overlay ─────────────────────────────────────────────────────────── */
+
+.hud-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.hud-overlay > * {
+  pointer-events: auto;
+}
+
+/* ── Title badge ───────────────────────────────────────────────────────── */
+
+.hud-title {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 8px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Speedometer ───────────────────────────────────────────────────────── */
+
+.hud-speed {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 16px 20px 12px;
+  min-width: 100px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.hud-speed-value {
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: var(--font-mono), monospace;
+  color: var(--text-primary);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.hud-speed-unit {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+.hud-speed-bar {
+  margin-top: 8px;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.hud-speed-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
+  border-radius: 2px;
+  transition: width 0.15s ease;
+}
+
+/* ── Controls hint ─────────────────────────────────────────────────────── */
+
+.hud-controls {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  max-width: 210px;
+}
+
+.hud-controls-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.hud-controls-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  align-items: center;
+  font-size: 0.7rem;
+}
+
+.hud-key {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* ── Station card ──────────────────────────────────────────────────────── */
+
+.hud-station-card {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+  width: 300px;
+  max-width: calc(100vw - 200px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Direction indicator ───────────────────────────────────────────────── */
+
+.hud-direction {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Minimap ───────────────────────────────────────────────────────────── */
+
+.hud-minimap {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 160px;
+  height: 160px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* ── Station list toggle ───────────────────────────────────────────────── */
+
+.hud-list-toggle {
+  position: absolute;
+  top: 16px;
+  right: 140px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+}
+
+.hud-list-toggle:hover {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Station list panel ────────────────────────────────────────────────── */
+
+.hud-station-list {
+  position: absolute;
+  top: 60px;
+  right: 16px;
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  animation: slide-up 0.3s ease-out;
+}
+
+/* ── Mobile adjustments ────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .hud-station-card {
+    width: calc(100vw - 40px);
+    max-width: none;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    padding: 12px;
+  }
+
+  .hud-minimap {
+    width: 100px;
+    height: 100px;
+    bottom: 10px;
+    right: 10px;
+  }
+
+  .hud-controls {
+    max-width: 180px;
+    padding: 10px 12px;
+  }
+
+  .hud-speed {
+    top: 10px;
+    right: 10px;
+    padding: 10px 14px;
+    min-width: 80px;
+  }
+
+  .hud-speed-value {
+    font-size: 1.5rem;
+  }
+
+  .hud-station-list {
+    width: calc(100vw - 32px);
+    right: 16px;
+  }
+
+  .hud-clock {
+    top: 56px;
+    padding: 6px 10px;
+  }
+
+  .hud-stats {
+    display: none;
+  }
+
+  .hud-priority-alert {
+    width: calc(100vw - 32px);
+    left: 16px;
+    right: 16px;
+    top: 90px;
+    padding: 10px 12px;
+  }
+}
+
+/* ── Clock (sim time) ──────────────────────────────────────────────────── */
+
+.hud-clock {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.hud-clock-time {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.hud-clock-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.tag-peak     { background: #fef3c7; color: #b45309; }
+.tag-offpeak  { background: #dcfce7; color: #15803d; }
+.tag-normal   { background: #dbeafe; color: #1e40af; }
+
+/* ── Grid stats panel ─────────────────────────────────────────────────── */
+
+.hud-stats {
+  position: absolute;
+  top: 16px;
+  right: 140px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 10px 14px;
+  min-width: 180px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.hud-stats-title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.hud-stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  padding: 2px 0;
+}
+
+.hud-stats-label {
+  color: var(--text-secondary);
+}
+
+.hud-stats-val {
+  font-family: var(--font-mono), monospace;
+}
+
+/* ── Priority zone alert (Part B) ─────────────────────────────────────── */
+
+.hud-priority-alert {
+  position: absolute;
+  top: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: rgba(253, 242, 248, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(244, 114, 182, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(244, 114, 182, 0.18);
+  pointer-events: auto;
+  z-index: 6;
+}
+
+.hud-pz-stat {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.hud-pz-label {
+  font-size: 0.6rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hud-pz-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-family: var(--font-mono), monospace;
+}
+
+/* ── Recommendation banner (Part A scheduling) ─────────────────────────── */
+
+.hud-reco {
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 4px;
+  border: 1px solid transparent;
+}
+
+.hud-reco-shift_to_offpeak {
+  background: linear-gradient(135deg, #ede9fe 0%, #fce7f3 100%);
+  border-color: #c4b5fd;
+}
+
+.hud-reco-charge_now {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.hud-reco-try_alternate {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.hud-reco-available {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.hud-reco-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1e293b;
+}
+
+.hud-reco-msg {
+  font-size: 0.7rem;
+  color: #334155;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+/* ── Minimap legend ───────────────────────────────────────────────────── */
+
+.hud-minimap-legend {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
+/* ── Slide-down for top alerts ────────────────────────────────────────── */
+
+@keyframes slide-down {
+  from { transform: translate(-50%, -16px); opacity: 0; }
+  to   { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.25s ease-out;
+}
+

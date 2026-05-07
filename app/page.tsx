@@ -62,6 +62,17 @@ const FEATURES = [
     iconBg: 'bg-gradient-to-br from-rose-500 to-pink-500',
     badge: 'Part B',
   },
+  {
+    href: '/explore',
+    icon: '🏙️',
+    title: '3D City Explorer',
+    description:
+      'Drive through a 3D Bengaluru cityscape and discover the nearest EV charging stations with real-time grid load, capacity, and pricing data.',
+    color: 'text-purple-600',
+    bg: 'bg-gradient-to-br from-purple-50 to-violet-50',
+    border: 'border-purple-100/60',
+    iconBg: 'bg-gradient-to-br from-purple-500 to-violet-500',
+  },
 ];
 
 const STATS = [
@@ -84,9 +95,9 @@ export default function HomePage() {
         </div>
 
         <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 text-slate-900 leading-[1.1]">
-          Volt
+          Namma
           <span className="bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 bg-clip-text text-transparent">
-            Route
+            Grid
           </span>
         </h1>
 
@@ -114,6 +125,7 @@ export default function HomePage() {
 
       {/* Feature Cards */}
       <div className="mt-10 sm:mt-14 grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
         {FEATURES.map((f) => (
           <Link
             key={f.href}

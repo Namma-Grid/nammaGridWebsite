@@ -198,9 +198,21 @@ export default function InfrastructurePage() {
           </div>
         </div>
 
-        {/* ML Recommendations (BESCOM AI) + Agent narration */}
-        <div className="grid gap-5 lg:grid-cols-2 mb-5">
+        {/* ML Recommendations (always visible) */}
+        <div className="mb-6">
           <RecommendationsTable />
+        </div>
+
+        {/* Agent insights — collapsible accordion (lazy loaded, cached per query) */}
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+            AI Insights
+          </span>
+          <span className="text-[11px] text-slate-400">
+            tap to expand · loads on demand · cached 10 min
+          </span>
+        </div>
+        <div className="space-y-2">
           <AgentPanel
             title="Priority Zones — Urgent Need"
             icon="🔴"
@@ -209,10 +221,6 @@ export default function InfrastructurePage() {
             minHeight="240px"
             maxHeight="480px"
           />
-        </div>
-
-        {/* Growth corridors + baseline */}
-        <div className="grid gap-5 lg:grid-cols-2 mb-5">
           <AgentPanel
             title="High-Growth EV Corridors"
             icon="📈"
@@ -227,10 +235,6 @@ export default function InfrastructurePage() {
             minHeight="200px"
             maxHeight="380px"
           />
-        </div>
-
-        {/* Grid constraints + demand growth */}
-        <div className="grid gap-5 lg:grid-cols-2 mb-5">
           <AgentPanel
             title="Grid Capacity & Load Constraints"
             icon="🔋"
@@ -245,15 +249,10 @@ export default function InfrastructurePage() {
             minHeight="200px"
             maxHeight="380px"
           />
-        </div>
-
-        {/* Evaluation + risk + roadmap */}
-        <div className="grid gap-5 lg:grid-cols-3">
           <AgentPanel
             title="Evaluation vs Baseline"
             icon="📊"
             query="Evaluate the AI-driven EV charging infrastructure plan vs a naive uniform distribution baseline for Bangalore. Metrics: demand coverage, peak load impact, grid stress, cost efficiency, equity (coverage of underserved areas). Give scores for each metric."
-            autoFetch={false}
             minHeight="160px"
             maxHeight="320px"
           />
@@ -261,7 +260,6 @@ export default function InfrastructurePage() {
             title="Key Risks & Mitigation"
             icon="⚠️"
             query="What are the top 5 risks for EV charging infrastructure rollout in Bangalore? For each risk: category (data/behavior/grid/policy), severity, likelihood, and specific mitigation strategy. Focus on grid stability and demand adoption risks."
-            autoFetch={false}
             minHeight="160px"
             maxHeight="320px"
           />
@@ -269,7 +267,6 @@ export default function InfrastructurePage() {
             title="Implementation Roadmap"
             icon="🗓️"
             query="Give a high-level 3-phase implementation plan for rolling out new EV charging infrastructure in Bangalore based on priority zones. Phase 1 (0-6 months), Phase 2 (6-18 months), Phase 3 (18-36 months). Include key milestones and dependencies."
-            autoFetch={false}
             minHeight="160px"
             maxHeight="320px"
           />

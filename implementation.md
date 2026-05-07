@@ -1,10 +1,10 @@
-# VoltRoute — Implementation Document
+# NammaGrid — Implementation Document
 
 > Spatio-Temporal Intelligence for Grid-Aware EV Infrastructure Planning
 
 ## Project Overview
 
-**VoltRoute** is a decision-support dashboard built for BESCOM's EV charging optimization challenge at the AI for Bharat Hackathon 2026. It provides three core intelligence layers:
+**NammaGrid** is a decision-support dashboard built for BESCOM's EV charging optimization challenge at the AI for Bharat Hackathon 2026. It provides three core intelligence layers:
 
 1. **Hex Grid Mapping** — Bengaluru city divided into H3 hexagonal cells classified by zone type
 2. **EV Route Intelligence** — Shortest-path visualization with EV density per segment

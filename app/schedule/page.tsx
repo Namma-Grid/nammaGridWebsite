@@ -290,8 +290,8 @@ export default function SchedulePage() {
           </div>
         </div>
 
-        {/* LP schedule + Load profile */}
-        <div className="grid gap-5 lg:grid-cols-2 mb-5">
+        {/* Always-visible primary panels — stacked vertically */}
+        <div className="space-y-5 mb-6">
           <div className="glass-card-static p-4 sm:p-5">
             <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <span className="text-amber-500">🕐</span>
@@ -311,49 +311,51 @@ export default function SchedulePage() {
           <LPSchedulePanel zone={area} />
         </div>
 
-        {/* Agent panels */}
-        <div className="grid gap-5 lg:grid-cols-2 mb-5">
+        {/* Agent insights — collapsible accordion (lazy loaded, cached per query) */}
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+            AI Insights
+          </span>
+          <span className="text-[11px] text-slate-400">
+            tap to expand · loads on demand · cached 10 min
+          </span>
+        </div>
+        <div className="space-y-2">
           <AgentPanel
             title={`AI Schedule — ${area}`}
             icon="🤖"
             query={scheduleQuery}
             badge="BESCOM Agent"
-            minHeight="260px"
+            minHeight="240px"
             maxHeight="420px"
           />
           <AgentPanel
             title="Load Shift Impact Analysis"
             icon="📉"
             query={loadShiftQuery}
-            minHeight="260px"
+            minHeight="240px"
             maxHeight="420px"
           />
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-3">
           <AgentPanel
             title="Off-Peak Benefits"
             icon="💰"
             query="What are the financial and grid benefits for EV owners who charge during BESCOM off-peak hours (10 PM - 6 AM)? Give specific numbers: tariff savings per kWh, monthly savings for average EV, grid congestion reduction."
-            autoFetch={false}
             minHeight="160px"
-            maxHeight="300px"
+            maxHeight="320px"
           />
           <AgentPanel
             title="Smart Charging Tips"
             icon="📱"
             query="Give 5 actionable smart charging tips for EV owners in Bangalore to reduce grid impact and save money. Be specific and practical."
-            autoFetch={false}
             minHeight="160px"
-            maxHeight="300px"
+            maxHeight="320px"
           />
           <AgentPanel
             title="Grid Alignment Score"
             icon="🎯"
             query="Rate the current EV charging behavior alignment with BESCOM grid capacity in Bangalore. Give a score out of 100, explain what's good, what's bad, and the top 3 improvements needed."
-            autoFetch={false}
             minHeight="160px"
-            maxHeight="300px"
+            maxHeight="320px"
           />
         </div>
       </SectionWrapper>

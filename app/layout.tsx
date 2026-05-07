@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VoltRoute — EV Charging Intelligence for Bengaluru",
+  title: "NammaGrid — EV Charging Intelligence for Bengaluru",
   description:
     "Spatio-temporal decision-support dashboard for EV charging demand prediction, route intelligence, and infrastructure planning across Bengaluru city.",
   keywords: [
@@ -57,7 +57,7 @@ export default function RootLayout({
           <div className="max-w-7xl mx-auto text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
               <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-white text-xs">⚡</div>
-              <span className="text-slate-800 font-bold text-sm">VoltRoute</span>
+              <span className="text-slate-800 font-bold text-sm">NammaGrid</span>
             </div>
             <p className="text-slate-400 text-xs">
               Spatio-Temporal Intelligence for Grid-Aware EV Infrastructure
