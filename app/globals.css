@@ -957,3 +957,272 @@ body {
   animation: slide-down 0.25s ease-out;
 }
 
+/* ─── Landing Page (Dark) ─────────────────────────────────────────────────── */
+
+.landing-page {
+  min-height: 100dvh;
+  background: linear-gradient(135deg, #0a0f1e 0%, #0d1530 40%, #0a1628 70%, #0a0f1e 100%);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.landing-grid-bg {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+
+/* ─── Role Cards ──────────────────────────────────────────────────────────── */
+
+.role-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 18px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(16px);
+}
+
+.role-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Demo tour tooltip ───────────────────────────────────────────────────── */
+
+.tour-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 16px;
+  padding: 20px 24px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.1);
+  animation: fade-in 0.3s ease-out;
+}
+
+/* ─── Operator page shell ─────────────────────────────────────────────────── */
+
+.operator-shell {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 40%, #f0f4ff 70%, #f8fafc 100%);
+  min-height: 100dvh;
+}
+
+.citizen-shell {
+  background: linear-gradient(135deg, #f8fafc 0%, #ecfdf5 40%, #f0fdf4 70%, #f8fafc 100%);
+  min-height: 100dvh;
+}
+
+/* ─── KPI Cards (operator) ─────────────────────────────────────────────────── */
+
+.kpi-card {
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.kpi-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: var(--font-mono), monospace;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.kpi-delta-up { color: #16a34a; font-size: 0.75rem; font-weight: 600; }
+.kpi-delta-down { color: #dc2626; font-size: 0.75rem; font-weight: 600; }
+
+/* ─── Alert feed ──────────────────────────────────────────────────────────── */
+
+.alert-feed {
+  background: #0f172a;
+  border-radius: 14px;
+  overflow: hidden;
+  font-family: var(--font-mono), monospace;
+}
+
+.alert-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.72rem;
+  color: #94a3b8;
+  transition: background 0.15s;
+}
+
+.alert-row:hover { background: rgba(255, 255, 255, 0.03); }
+.alert-row:last-child { border-bottom: none; }
+
+/* ─── Impact strip ────────────────────────────────────────────────────────── */
+
+.impact-strip {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1a4a3a 100%);
+  border-radius: 16px;
+  padding: 20px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ─── Tab nav ─────────────────────────────────────────────────────────────── */
+
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 4px;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.tab-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: none;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+}
+
+.tab-btn:hover:not(.active) { color: var(--text-secondary); background: rgba(0,0,0,0.04); }
+
+/* ─── What-if simulator ───────────────────────────────────────────────────── */
+
+.whatif-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+  outline: none;
+  cursor: pointer;
+}
+
+.whatif-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #3b82f6;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+  cursor: pointer;
+}
+
+/* ─── Citizen demand meter ────────────────────────────────────────────────── */
+
+.demand-meter-low    { color: #16a34a; }
+.demand-meter-medium { color: #d97706; }
+.demand-meter-high   { color: #dc2626; }
+
+/* ─── Citizen bottom sheet ────────────────────────────────────────────────── */
+
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px 32px;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.1);
+  animation: slide-up-sheet 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slide-up-sheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* ─── About page ──────────────────────────────────────────────────────────── */
+
+.about-page {
+  background: linear-gradient(135deg, #0a0f1e 0%, #0d1530 100%);
+  min-height: 100dvh;
+  color: white;
+}
+
+.about-section {
+  padding: 64px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.about-stat-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+}
+
+/* ─── Tablet-only operator banner ─────────────────────────────────────────── */
+
+.mobile-only-banner {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-only-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: #fef3c7;
+    border-bottom: 1px solid #fde68a;
+    font-size: 0.8rem;
+    color: #92400e;
+    gap: 8px;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    z-index: 40;
+  }
+
+  .operator-content-offset {
+    padding-top: 3rem;
+  }
+}
+
+/* ─── Print styles for /about ─────────────────────────────────────────────── */
+
+@media print {
+  .no-print { display: none !important; }
+  .about-page { background: white !important; color: black !important; }
+  .about-section { border-color: #e2e8f0 !important; }
+  .about-stat-card { background: #f8fafc !important; border-color: #e2e8f0 !important; }
+}
+
+

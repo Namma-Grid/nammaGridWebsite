@@ -1,170 +1,243 @@
-import Link from 'next/link';
-import gridData from '@/bangalore-hex-grid.json';
+'use client';
 
-const FEATURES = [
-  {
-    href: '/hexgrid',
-    icon: '⬡',
-    title: 'Bengaluru Hex Grid',
-    description:
-      'H3 hexagonal spatial index with 1,519 cells at resolution 8. Explore zone classifications and demand status across the city.',
-    color: 'text-blue-600',
-    bg: 'bg-gradient-to-br from-blue-50 to-indigo-50',
-    border: 'border-blue-100/60',
-    iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-500',
-    badge: null,
-  },
-  {
-    href: '/routes',
-    icon: '⚡',
-    title: 'EV Route Intelligence',
-    description:
-      'Visualize shortest paths between locations and see EV density on each route segment in real time.',
-    color: 'text-emerald-600',
-    bg: 'bg-gradient-to-br from-emerald-50 to-teal-50',
-    border: 'border-emerald-100/60',
-    iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-500',
-    badge: null,
-  },
-  {
-    href: '/demand',
-    icon: '📊',
-    title: 'Grid Demand Prediction',
-    description:
-      'AI-driven 24-hour demand forecasting powered by the BESCOM EV Agent. Interactive heatmaps and real-time zone analysis.',
-    color: 'text-amber-600',
-    bg: 'bg-gradient-to-br from-amber-50 to-orange-50',
-    border: 'border-amber-100/60',
-    iconBg: 'bg-gradient-to-br from-amber-500 to-orange-500',
-    badge: 'Part A',
-  },
-  {
-    href: '/schedule',
-    icon: '⏱️',
-    title: 'Charging Schedule Optimizer',
-    description:
-      'AI recommendations for optimal EV charging windows. Reduce peak load, lower costs, and align with grid capacity — no infrastructure changes.',
-    color: 'text-purple-600',
-    bg: 'bg-gradient-to-br from-purple-50 to-violet-50',
-    border: 'border-purple-100/60',
-    iconBg: 'bg-gradient-to-br from-purple-500 to-violet-500',
-    badge: 'Part A',
-  },
-  {
-    href: '/infrastructure',
-    icon: '🏗️',
-    title: 'Infrastructure Location Planner',
-    description:
-      'Identify priority zones and optimal locations for new charging stations. AI-powered site selection with demand growth and grid constraint analysis.',
-    color: 'text-rose-600',
-    bg: 'bg-gradient-to-br from-rose-50 to-pink-50',
-    border: 'border-rose-100/60',
-    iconBg: 'bg-gradient-to-br from-rose-500 to-pink-500',
-    badge: 'Part B',
-  },
-  {
-    href: '/explore',
-    icon: '🏙️',
-    title: '3D City Explorer',
-    description:
-      'Drive through a 3D Bengaluru cityscape and discover the nearest EV charging stations with real-time grid load, capacity, and pricing data.',
-    color: 'text-purple-600',
-    bg: 'bg-gradient-to-br from-purple-50 to-violet-50',
-    border: 'border-purple-100/60',
-    iconBg: 'bg-gradient-to-br from-purple-500 to-violet-500',
-  },
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+const STATS_BAR = [
+  '1,519 Hex Cells Mapped',
+  '23 Priority Zones Identified',
+  '₹4.2Cr Grid Stress Prevented (Projected)',
+  '58 Road Segments Analyzed',
 ];
 
-const STATS = [
-  { value: gridData.meta.totalCells.toLocaleString(), label: 'Hex Cells', color: 'text-blue-600', dotColor: 'bg-blue-500' },
-  { value: gridData.meta.zoneCounts.residential, label: 'Residential', color: 'text-emerald-600', dotColor: 'bg-emerald-500' },
-  { value: gridData.meta.zoneCounts.workplace, label: 'Workplace', color: 'text-amber-600', dotColor: 'bg-amber-500' },
-  { value: gridData.meta.zoneCounts.marketplace, label: 'Marketplace', color: 'text-purple-600', dotColor: 'bg-purple-500' },
-];
+export default function LandingPage() {
+  const router = useRouter();
+  const [showPin, setShowPin] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [showAbout, setShowAbout] = useState(false);
 
-export default function HomePage() {
+  useEffect(() => {
+    // Skip redirect if demo tour is active or was just cleared
+    if (localStorage.getItem('namma_tour_active') === 'true') return;
+    const role = localStorage.getItem('namma_role');
+    if (role === 'operator' || role === 'citizen') {
+      router.replace(`/${role}`);
+    }
+  }, [router]);
+
+  function handleOperatorClick() {
+    setPin('');
+    setPinError('');
+    setShowPin(true);
+  }
+
+  function handlePinSubmit() {
+    if (pin === 'BESCOM2026') {
+      localStorage.setItem('namma_role', 'operator');
+      setShowPin(false);
+      router.push('/operator');
+    } else {
+      setPinError('Incorrect PIN. Try BESCOM2026.');
+    }
+  }
+
+  function handleCitizenClick() {
+    localStorage.setItem('namma_role', 'citizen');
+    router.push('/citizen');
+  }
+
   return (
-    <div className="page-container">
-      {/* Hero Section */}
-      <div className="gradient-hero py-6 sm:py-10 animate-slide-up">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-blue-500/20">
-            ⚡
+    <div className="landing-page">
+      {/* Background grid */}
+      <div className="landing-grid-bg" />
+
+      {/* Main content */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-3 sm:px-10 sm:py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center text-white text-base font-bold shadow-lg">
+              ⚡
+            </div>
+            <span className="text-xl font-extrabold text-white tracking-tight">
+              Namma<span className="text-blue-400">Grid</span>
+            </span>
           </div>
-          <span className="badge badge-blue">AI-Powered Decision Support</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowAbout(true)}
+              className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-4"
+            >
+              About this project
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem('namma_tour_active', 'true');
+                localStorage.setItem('namma_tour_step', '0');
+                window.dispatchEvent(new Event('namma_tour_change'));
+              }}
+              className="px-4 py-2 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-300 text-sm font-semibold hover:bg-blue-500/30 transition-colors"
+            >
+              ▶ Start Demo
+            </button>
+          </div>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 text-slate-900 leading-[1.1]">
-          Namma
-          <span className="bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 bg-clip-text text-transparent">
-            Grid
-          </span>
-        </h1>
+        {/* Hero */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-4">
+          <div className="mb-3 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-sm font-medium">
+            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+            BESCOM × AI for Bharat Hackathon 2026
+          </div>
 
-        <p className="text-slate-500 text-base sm:text-lg max-w-2xl leading-relaxed mb-8">
-          Spatio-temporal intelligence for grid-aware EV infrastructure planning
-          across Bengaluru. Predict demand, optimize routes, and plan charging
-          infrastructure — all without modifying existing distribution systems.
-        </p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-[1.1] mb-2">
+            Powering Bengaluru&apos;s<br />
+            <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
+              EV Future
+            </span>
+          </h1>
+          <p className="text-slate-400 text-base sm:text-lg max-w-xl leading-relaxed mb-5">
+            Grid-Aware. Data-Driven. Real-Time. — Choose your role to get started.
+          </p>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 stagger-children">
-          {STATS.map((stat) => (
-            <div key={stat.label} className="stat-card group">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className={`w-2 h-2 rounded-full ${stat.dotColor}`} />
-                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">
-                  {stat.label}
+          {/* Role cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-2xl">
+            {/* Operator card */}
+            <button
+              onClick={handleOperatorClick}
+              className="role-card group text-left"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-2xl shadow-lg shadow-blue-500/30">
+                  ⚡
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-red-500/15 border border-red-400/30 text-red-300 text-[11px] font-bold uppercase tracking-wider">
+                  Restricted
                 </span>
               </div>
-              <div className={`stat-value ${stat.color}`}>{stat.value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Feature Cards */}
-      <div className="mt-10 sm:mt-14 grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
-
-        {FEATURES.map((f) => (
-          <Link
-            key={f.href}
-            href={f.href}
-            className={`group relative overflow-hidden glass-card p-6 sm:p-7 ${f.border} border hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}
-          >
-            {/* Subtle background gradient */}
-            <div className={`absolute inset-0 ${f.bg} opacity-50 group-hover:opacity-80 transition-opacity`} />
-
-            <div className="relative">
-              <div className="flex items-start justify-between mb-5">
-                <div className={`w-12 h-12 rounded-xl ${f.iconBg} flex items-center justify-center text-white text-2xl shadow-md`}>
-                  {f.icon}
-                </div>
-                {f.badge && (
-                  <span className="badge badge-blue text-xs">{f.badge}</span>
-                )}
-              </div>
-              <h2 className={`text-lg font-bold mb-2 ${f.color}`}>{f.title}</h2>
-              <p className="text-sm text-slate-500 leading-relaxed">{f.description}</p>
-              <div className="mt-5 flex items-center gap-1.5 text-sm font-semibold text-blue-600 group-hover:gap-3 transition-all duration-300">
-                Explore
+              <h2 className="text-xl font-bold text-white mb-1">BESCOM Operator</h2>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Grid management, infrastructure planning & demand forecasting
+              </p>
+              <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-blue-400 group-hover:gap-3 transition-all">
+                Enter with PIN
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </div>
-            </div>
-          </Link>
-        ))}
+            </button>
+
+            {/* Citizen card */}
+            <button
+              onClick={handleCitizenClick}
+              className="role-card group text-left"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-2xl shadow-lg shadow-emerald-500/30">
+                  🚗
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-[11px] font-bold uppercase tracking-wider">
+                  Public Access
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-1">EV Driver / Citizen</h2>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Find charging stations, plan routes & check demand
+              </p>
+              <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-emerald-400 group-hover:gap-3 transition-all">
+                Enter free
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Stats bar */}
+        <div className="border-t border-white/5 bg-white/[0.02] backdrop-blur-sm">
+          <div className="max-w-5xl mx-auto px-6 py-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {STATS_BAR.map((s, i) => (
+              <span key={i} className="flex items-center gap-2 text-xs text-slate-500">
+                {i > 0 && <span className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block" />}
+                <span className="text-slate-400 font-medium">{s}</span>
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Tech badge bar */}
-      <div className="mt-10 flex flex-wrap gap-2 justify-center">
-        {['H3 Hexagonal Grid', 'Graph Neural Network', 'Temporal Attention', 'BESCOM Grid Data'].map((t) => (
-          <span key={t} className="px-3 py-1.5 rounded-full bg-white/80 border border-slate-100 text-[11px] text-slate-400 font-medium tracking-wide">
-            {t}
-          </span>
-        ))}
-      </div>
+      {/* PIN Modal */}
+      {showPin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowPin(false)} />
+          <div className="relative bg-[#1a1f2e] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-slide-up">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center text-xl">🔒</div>
+              <div>
+                <h3 className="text-white font-bold text-base">BESCOM Operator Access</h3>
+                <p className="text-slate-400 text-xs">Enter your access PIN to continue</p>
+              </div>
+            </div>
+
+            <input
+              type="password"
+              value={pin}
+              onChange={(e) => { setPin(e.target.value); setPinError(''); }}
+              onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
+              placeholder="Enter PIN"
+              autoFocus
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 mb-2 font-mono tracking-widest"
+            />
+            {pinError && <p className="text-red-400 text-xs mb-3">{pinError}</p>}
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setShowPin(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 text-sm hover:bg-white/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePinSubmit}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 transition-colors"
+              >
+                Enter →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* About modal */}
+      {showAbout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAbout(false)} />
+          <div className="relative bg-[#1a1f2e] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-slide-up overflow-y-auto max-h-[80vh]">
+            <button onClick={() => setShowAbout(false)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-slate-400 text-xl">×</button>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-xl">⚡</div>
+              <h3 className="text-white font-bold text-lg">About NammaGrid</h3>
+            </div>
+            <div className="space-y-3 text-sm text-slate-400 leading-relaxed">
+              <p>
+                <strong className="text-white">NammaGrid</strong> is a spatio-temporal decision-support platform built for BESCOM (Bangalore Electricity Supply Company) to manage the rapid growth of EV charging demand across Bengaluru.
+              </p>
+              <p>
+                It combines <strong className="text-slate-300">H3 hexagonal spatial indexing</strong>, <strong className="text-slate-300">ML demand forecasting</strong>, and <strong className="text-slate-300">LP-based schedule optimization</strong> to give grid operators real-time visibility and citizens actionable charging guidance.
+              </p>
+              <p>
+                Built for the <strong className="text-slate-300">AI for Bharat Hackathon 2026</strong> — a national initiative to apply AI in public infrastructure.
+              </p>
+              <div className="mt-4 p-3 rounded-xl bg-white/5 border border-white/10 text-xs">
+                <p className="text-slate-500">Stack: Next.js 16 · React 19 · H3-JS · Leaflet · Three.js · Recharts · BESCOM AI API</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
