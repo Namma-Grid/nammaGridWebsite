@@ -69,7 +69,7 @@ export default function OperatorNavbar() {
           <div className="hidden md:flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs text-emerald-700 font-semibold">Grid Stable · 847 MW</span>
+              <span className="text-xs text-emerald-700 font-semibold">Grid Stable · 847 MW · Updated 30s ago</span>
             </div>
             <RoleBadge role="operator" />
           </div>

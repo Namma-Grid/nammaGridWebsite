@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const STATS_BAR = [
-  '1,519 Hex Cells Mapped',
-  '23 Priority Zones Identified',
-  '₹4.2Cr Grid Stress Prevented (Projected)',
-  '58 Road Segments Analyzed',
+  '1,519 H3 Cells Mapped · Resolution 8 · ~461m diameter',
+  '47 Priority Zones Identified',
+  '₹2.1Cr/Month Grid Stress Prevented (Projected)',
+  '58 Road Segments · 267 EVs Added Daily',
 ];
 
 export default function LandingPage() {
@@ -222,16 +222,19 @@ export default function LandingPage() {
             </div>
             <div className="space-y-3 text-sm text-slate-400 leading-relaxed">
               <p>
-                <strong className="text-white">NammaGrid</strong> is a spatio-temporal decision-support platform built for BESCOM (Bangalore Electricity Supply Company) to manage the rapid growth of EV charging demand across Bengaluru.
+                <strong className="text-white">NammaGrid</strong> is a decision-support intelligence layer built for BESCOM&apos;s EV Charging Optimization Challenge at the AI for Bharat Hackathon 2026.
               </p>
               <p>
-                It combines <strong className="text-slate-300">H3 hexagonal spatial indexing</strong>, <strong className="text-slate-300">ML demand forecasting</strong>, and <strong className="text-slate-300">LP-based schedule optimization</strong> to give grid operators real-time visibility and citizens actionable charging guidance.
+                Bengaluru is adding <strong className="text-slate-300">267 new electric vehicles every single day</strong> (Karnataka RTO, Q1 2026). Without smart grid management, all those EVs will charge at 7 PM — exactly when the grid is already at peak stress.
               </p>
               <p>
-                Built for the <strong className="text-slate-300">AI for Bharat Hackathon 2026</strong> — a national initiative to apply AI in public infrastructure.
+                NammaGrid gives BESCOM operators real-time demand intelligence, LP-optimized charging schedules, and ML-scored infrastructure recommendations. It gives EV drivers a simple way to find the cheapest, least congested time and place to charge.
+              </p>
+              <p>
+                We do not touch a single switch or transformer. We are a <strong className="text-slate-300">read-only decision-support layer</strong> — fully compliant with BESCOM&apos;s non-intrusion requirement.
               </p>
               <div className="mt-4 p-3 rounded-xl bg-white/5 border border-white/10 text-xs">
-                <p className="text-slate-500">Stack: Next.js 16 · React 19 · H3-JS · Leaflet · Three.js · Recharts · BESCOM AI API</p>
+                <p className="text-slate-500">Stack: Next.js 16 · H3 Spatial Index · GradientBoosting ML · LP Optimization · Leaflet · Three.js · BESCOM EV AI + Agent</p>
               </div>
             </div>
           </div>

@@ -36,7 +36,7 @@ const KPI_DATA = [
     iconBg: 'bg-blue-50',
   },
   {
-    label: 'Active EV Sessions (est.)',
+    label: 'Active EV Charging Sessions (est.) · Bengaluru',
     value: '14,302',
     delta: '↑ 8.4% today',
     up: true,
@@ -47,7 +47,7 @@ const KPI_DATA = [
   {
     label: 'Peak Stress Zones',
     value: '7',
-    delta: '↓ 2 resolved today',
+    delta: '↓ 2 resolved via smart scheduling today',
     up: false,
     icon: '⚠️',
     color: 'text-amber-600',
@@ -56,7 +56,7 @@ const KPI_DATA = [
   {
     label: 'Avg. Charging Efficiency',
     value: '73.4%',
-    delta: '↑ 4.1% with smart scheduling',
+    delta: '↑ 4.1% vs last month · smart scheduling active',
     up: true,
     icon: '📈',
     color: 'text-purple-600',
@@ -65,21 +65,21 @@ const KPI_DATA = [
 ];
 
 const IMPACT_METRICS = [
-  { value: '₹2.1Cr', label: 'saved in grid stress costs this month (projected)', icon: '💰' },
+  { value: '₹2.1Cr/mo', label: 'grid stress cost savings (projected)', icon: '💰' },
   { value: '340 MWh', label: 'demand shifted off-peak via smart scheduling', icon: '🔋' },
   { value: '23 zones', label: 'flagged for infrastructure expansion', icon: '📍' },
-  { value: '61%', label: 'reduction in unmanaged peak load vs baseline', icon: '📉' },
+  { value: '23–61%', label: 'peak EV load reduction vs unmanaged baseline (LP-optimized)', icon: '📉' },
 ];
 
 const SEED_ALERTS = [
-  { level: '🔴', time: '18:42', zone: 'Koramangala', msg: 'Peak threshold exceeded (94%)', age: 0 },
-  { level: '🟡', time: '18:38', zone: 'Whitefield', msg: 'EV density up 23% in last hour', age: 4 },
-  { level: '🟢', time: '18:30', zone: 'Indiranagar', msg: 'Load normalized post-scheduling', age: 12 },
-  { level: '🔴', time: '18:25', zone: 'Electronic City', msg: 'Transformer near capacity', age: 17 },
-  { level: '🟡', time: '18:18', zone: 'HSR Layout', msg: 'EV charging sessions up 31%', age: 24 },
-  { level: '🟢', time: '18:10', zone: 'Hebbal', msg: 'Demand within forecast range', age: 32 },
-  { level: '🟡', time: '18:05', zone: 'Yeshwanthpur', msg: 'Grid stress score 71/100', age: 37 },
-  { level: '🔴', time: '17:58', zone: 'Marathahalli', msg: 'Substation load at 88%', age: 44 },
+  { level: '🔴', time: '18:42', zone: 'Koramangala', msg: 'Peak threshold exceeded (94%) · TR-KRM-04 at 91% capacity · Recommend: push delayed charging alert to 1,240 registered EVs in zone', age: 0 },
+  { level: '🟡', time: '18:38', zone: 'Whitefield', msg: 'EV density up 23% vs last Friday same hour · 3 fast-chargers at 100% utilization · Predicted to normalize by 21:30', age: 4 },
+  { level: '🟢', time: '18:30', zone: 'Indiranagar', msg: 'Load normalized post-scheduling intervention · 340 kWh shifted to off-peak window · Feeder stress: 58% (was 87% at 17:00)', age: 12 },
+  { level: '🔴', time: '18:25', zone: 'Electronic City', msg: 'Feeder ECITY-11kV-F3 near rated capacity · Recommend: flag for infrastructure review · Growth rate: 85% YoY', age: 17 },
+  { level: '🟡', time: '18:18', zone: 'HSR Layout', msg: 'EV charging sessions up 36% · Within forecast range · monitoring', age: 24 },
+  { level: '🟢', time: '18:15', zone: 'Hebbal', msg: 'Demand within forecast range · Off-peak pre-conditioning active for 890 EVs', age: 32 },
+  { level: '🟡', time: '18:05', zone: 'Yeshwanthpur', msg: 'Grid stress score 71/100 · No intervention needed at this time', age: 37 },
+  { level: '🔴', time: '17:58', zone: 'Marathahalli', msg: 'Substation load at 88% · Approaching threshold · Monitor closely', age: 44 },
 ];
 
 const DYNAMIC_ALERTS = [
@@ -142,7 +142,7 @@ export default function OperatorOverview() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs">⬡</span>
-              Live Hex Grid — Bengaluru (1,519 cells)
+              Live Hex Grid — Bengaluru (1,519 H3 cells · Resolution 8 · ~461m diameter)
             </h2>
             <Link href="/operator/demand" className="text-xs text-blue-600 hover:underline">Full analysis →</Link>
           </div>
@@ -201,9 +201,9 @@ export default function OperatorOverview() {
       {/* Quick links */}
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
-          { href: '/operator/demand', label: 'Demand & Grid Analysis', icon: '📊', color: 'hover:border-blue-300 hover:bg-blue-50' },
-          { href: '/operator/infrastructure', label: 'Infrastructure Planner', icon: '🏗️', color: 'hover:border-purple-300 hover:bg-purple-50' },
-          { href: '/operator/schedule', label: 'Schedule Optimizer', icon: '⏱️', color: 'hover:border-emerald-300 hover:bg-emerald-50' },
+          { href: '/operator/demand', label: 'Demand & Grid Analysis · 4 peak-risk hours detected', icon: '📊', color: 'hover:border-blue-300 hover:bg-blue-50' },
+          { href: '/operator/infrastructure', label: 'Infrastructure Planner · 7 URGENT zones', icon: '🏗️', color: 'hover:border-purple-300 hover:bg-purple-50' },
+          { href: '/operator/schedule', label: 'Schedule Optimizer · Optimal window: 11 PM – 6 AM', icon: '⏱️', color: 'hover:border-emerald-300 hover:bg-emerald-50' },
         ].map((link) => (
           <Link key={link.href} href={link.href} className={`flex items-center gap-3 p-4 rounded-xl border border-slate-100 bg-white transition-all ${link.color}`}>
             <span className="text-2xl">{link.icon}</span>

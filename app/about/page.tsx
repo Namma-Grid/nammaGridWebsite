@@ -4,18 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 const PROBLEM_STATS = [
-  { value: '1.2M+', label: 'Registered EVs as of 2025', source: 'Karnataka RTO' },
+  { value: '1.2M+', label: 'Cumulative EV registrations since 2017 · 267 new EVs added daily (2026)', source: 'Karnataka RTO' },
   { value: '12–18%', label: 'Localized grid stress in peak zones', source: 'BESCOM Internal Study' },
-  { value: '₹340Cr', label: 'Estimated annual cost of unmanaged EV charging', source: 'BESCOM Projection' },
-  { value: '1:1,416', label: 'EV-to-charger ratio (vs 1:10 global benchmark)', source: 'Karnataka EV Cell' },
+  { value: '₹340Cr+', label: 'Estimated annual grid stress cost from unmanaged EV charging', source: 'BESCOM internal projection (ISGF study basis)' },
+  { value: '1:150', label: 'Karnataka EV-to-charger ratio (vs 1:10 global benchmark)', source: 'IndiaDataMap 2026' },
+  { value: '267 / day', label: 'New EVs being registered in Bengaluru daily (Q1 2026 avg)', source: 'Karnataka RTO / CarToq April 2026' },
 ];
 
 const IMPACT_STATS = [
-  { value: '₹2.1Cr', label: 'saved in grid stress costs / month (projected)', icon: '💰' },
+  { value: '₹2.1Cr/mo', label: 'grid stress cost savings (projected)', icon: '💰' },
   { value: '340 MWh', label: 'demand shifted off-peak / month', icon: '🔋' },
-  { value: '61%', label: 'reduction in peak EV load vs baseline', icon: '📉' },
-  { value: '23', label: 'priority zones identified for expansion', icon: '📍' },
-  { value: '₹180', label: 'average savings / month per EV user', icon: '🚗' },
+  { value: '23–61%', label: 'peak EV load reduction vs unmanaged baseline (LP-optimized, varies by adoption rate)', icon: '📉' },
+  { value: '47', label: 'priority zones identified for expansion (23 urgent + 24 high)', icon: '📍' },
+  { value: '₹180–500', label: 'average savings / month per EV user (by battery size)', icon: '🚗' },
   { value: '8 min', label: 'average wait time reduction at peak stations', icon: '⏱️' },
 ];
 
@@ -25,6 +26,7 @@ const COMPARISON = [
   { metric: 'Infrastructure siting', baseline: 'Experience-based', namma: 'ML-scored, grid-constrained' },
   { metric: 'Operator visibility', baseline: 'Zone-level (monthly)', namma: 'Cell-level (real-time hex grid)' },
   { metric: 'Citizen awareness', baseline: 'None', namma: 'Personalized charging guidance' },
+  { metric: 'EV user guidance', baseline: 'Zero — no citizen-facing tools', namma: 'Personalized off-peak charging nudges with ₹ savings' },
 ];
 
 const ROADMAP = [
@@ -37,25 +39,25 @@ const ROADMAP = [
   },
   {
     phase: 'Phase 2',
-    label: 'Pilot (3–6 months)',
+    label: 'Pilot (Q3 2026 · 3–6 months)',
     color: 'border-amber-400 bg-amber-50',
     dot: 'bg-amber-500',
-    items: ['3 high-density corridors: Koramangala, Whitefield, Electronic City', 'Live SCADA integration (read-only)', '500 pilot EV users on citizen app', 'Real smart meter data ingestion'],
+    items: ['3 high-density corridors: Koramangala, Whitefield, Electronic City', 'Live SCADA integration (read-only)', '500–1,000 pilot EV users on citizen app', 'Real smart meter data ingestion'],
   },
   {
     phase: 'Phase 3',
     label: 'State Scale (12–18 months)',
     color: 'border-emerald-400 bg-emerald-50',
     dot: 'bg-emerald-500',
-    items: ['All Karnataka DISCOMs (BESCOM, CESCOM, MESCOM, HESCOM, GESCOM)', '5M+ EV users on citizen portal', '50,000+ hex cells statewide', 'Integration with Karnataka EV Policy 2025 dashboard'],
+    items: ['All 5 Karnataka DISCOMs (BESCOM, CESCOM, MESCOM, HESCOM, GESCOM) · serving 2.9 crore electricity consumers', '50L+ EV users on citizen portal · projected Karnataka EV fleet by 2028', '50,000+ hex cells statewide', 'Integration with Karnataka EV Policy 2025 dashboard'],
   },
 ];
 
 const SUPPORT_CARDS = [
-  { icon: '📡', title: 'Data Access', desc: 'Read-only SCADA API + smart meter AMI feed' },
-  { icon: '☁️', title: 'Cloud Infrastructure', desc: 'NIC or BESCOM private cloud provisioning' },
-  { icon: '🗺️', title: 'Pilot Corridor', desc: '3-month access to Koramangala / Whitefield zone data' },
-  { icon: '⚖️', title: 'Policy Alignment', desc: 'DPDP Act compliance review + CERT-In audit support' },
+  { icon: '📡', title: 'Data Access', desc: 'Read-only access to: (1) AMI smart meter zone aggregates — NOT individual consumer data, (2) Feeder capacity ratings (engineering data), (3) Historical peak demand logs per zone. No new infrastructure needed — works with BESCOM\'s existing data exports.' },
+  { icon: '☁️', title: 'Cloud Infrastructure', desc: '2× app servers + 1× GPU inference server on NIC DataCenter or BESCOM private cloud. ~₹4.55L/month operational. Alternatively deployable on MeitY cloud (GI Cloud/MeghRaj).' },
+  { icon: '🗺️', title: 'Pilot Corridor', desc: '90-day pilot in Koramangala, Whitefield, and Electronic City corridors. Read-only data access + 500 volunteer EV users for behavior tracking. Zero infrastructure changes required.' },
+  { icon: '⚖️', title: 'Policy Alignment', desc: 'DPDP 2023 compliance review (we are designed to collect zero PII), CERT-In empanelled security audit, alignment with Karnataka EV Policy 2025 dashboard integration.' },
 ];
 
 const SECURITY = [
@@ -65,6 +67,7 @@ const SECURITY = [
   'All API responses cached — no raw grid data exposed in transit',
   'Compliant with IT Act 2000 and upcoming DPDP Act 2023 requirements',
   'Audit log ready — all operator actions can be logged',
+  'No actuation capability — system cannot modify grid settings, issue control signals, or interact with SCADA in write mode. Maximum breach impact: read-only forecast data exposure.',
 ];
 
 function CountUp({ target, suffix = '' }: { target: string; suffix?: string }) {
@@ -113,7 +116,7 @@ export default function AboutPage() {
             <h2 className="text-3xl font-extrabold text-white mt-2 mb-3">The Problem in Numbers</h2>
             <p className="text-slate-400 text-base">Bengaluru&apos;s EV charging crisis — quantified.</p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {PROBLEM_STATS.map((s) => (
               <div key={s.label} className="about-stat-card">
                 <div className="text-2xl font-extrabold text-white font-mono mb-2">
@@ -159,7 +162,7 @@ export default function AboutPage() {
           <div className="mb-8">
             <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Section C</span>
             <h2 className="text-3xl font-extrabold text-white mt-2 mb-3">Projected Impact</h2>
-            <p className="text-slate-400 text-sm">Projections based on LP optimization model outputs benchmarked against Karnataka DISCOM peak management reports and IEA EV charging demand studies.</p>
+            <p className="text-slate-400 text-sm">Projections based on: (1) LP optimization model (HDBSCAN-LP framework, validated on 72,856 real charging sessions — ResearchGate 2025), (2) Karnataka RTO Q1 2026 registration data, (3) ISGF load flow study on BESCOM feeders (2021), (4) IEA Global EV Outlook 2024, (5) BESCOM Time-of-Use tariff schedule.</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {IMPACT_STATS.map((s) => (
@@ -186,7 +189,7 @@ export default function AboutPage() {
               <div className="space-y-3 text-xs text-slate-400 font-mono">
                 <div>
                   <p className="text-slate-300 font-semibold text-sm mb-1">Current (Demo)</p>
-                  <p>Vercel (Next.js) + BESCOM AI API + Static H3 JSON</p>
+                  <p>Vercel · Next.js 16 · BESCOM EV AI + Agent API · H3 Static Dataset (1.5MB)</p>
                 </div>
                 <div className="border-t border-white/10 pt-3">
                   <p className="text-slate-300 font-semibold text-sm mb-2">Production (BESCOM Cloud)</p>
@@ -196,7 +199,9 @@ export default function AboutPage() {
                     <div className="flex justify-between"><span>Redis cache</span><span className="text-white">₹40K/mo</span></div>
                     <div className="flex justify-between"><span>CDN (Cloudflare)</span><span className="text-white">₹15K/mo</span></div>
                     <div className="flex justify-between border-t border-white/10 pt-1 font-bold text-white"><span>Total operational</span><span>~₹4.55L/mo</span></div>
-                    <div className="flex justify-between text-slate-300"><span>One-time setup</span><span>~₹12L</span></div>
+                    <div className="flex justify-between text-slate-300"><span>One-time setup + integration</span><span>~₹12L</span></div>
+                    <div className="flex justify-between text-slate-300"><span>Total Year 1 investment</span><span>~₹66.6L</span></div>
+                    <div className="flex justify-between border-t border-white/10 pt-1 text-emerald-400 font-bold"><span>ROI breakeven vs ₹340Cr/yr grid stress</span><span>&lt; 3 months</span></div>
                   </div>
                 </div>
               </div>

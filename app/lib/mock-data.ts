@@ -16,28 +16,33 @@ export const MOCK_SCHEDULE: ScheduleResult = {
   date: '2026-05-15',
   num_evs: 500,
   total_ev_demand_mwh: 42.5,
-  managed_peak_mw: 4.2,
-  unmanaged_peak_mw: 6.8,
-  peak_reduction_mw: 2.6,
-  peak_reduction_pct: 38.2,
+  managed_peak_mw: 73.07,
+  unmanaged_peak_mw: 101.4,
+  peak_reduction_mw: 28.3,
+  peak_reduction_pct: 27.9,
   managed_avg_util_pct: 61.4,
   charging_windows: [
     { start_hour: 23, end_hour: 5, duration_h: 6, label: '23:00–05:00' },
     { start_hour: 11, end_hour: 14, duration_h: 3, label: '11:00–14:00' },
   ],
-  hourly: Array.from({ length: 24 }, (_, h) => ({
-    hour: h,
-    base_demand_mw: 8 + Math.sin((h - 9) / 4) * 2,
-    managed_ev_mw: h >= 23 || h <= 5 || (h >= 11 && h <= 14) ? 2.1 : 0.4,
-    unmanaged_ev_mw: h >= 18 && h <= 21 ? 3.4 : 1.2,
-    managed_total_mw: (8 + Math.sin((h - 9) / 4) * 2) + (h >= 23 || h <= 5 ? 2.1 : 0.4),
-    unmanaged_total_mw: (8 + Math.sin((h - 9) / 4) * 2) + (h >= 18 && h <= 21 ? 3.4 : 1.2),
-    grid_capacity_mw: 18,
-    managed_utilization_pct: 55 + (h >= 18 && h <= 21 ? 5 : 0),
-    unmanaged_util_pct: 55 + (h >= 18 && h <= 21 ? 20 : 0),
-    recommendation: h >= 23 || h <= 5 || (h >= 11 && h <= 14) ? 'CHARGE' : h >= 18 && h <= 21 ? 'AVOID' : 'PARTIAL',
-  })),
-  solver: 'LP-fallback',
+  hourly: Array.from({ length: 24 }, (_, h) => {
+    const baseMw = 62 + Math.sin((h - 9) / 4) * 8;
+    const unmanagedEv = h >= 18 && h <= 21 ? 29 : 9;
+    const managedEv = h >= 23 || h <= 5 || (h >= 11 && h <= 14) ? 14 : h >= 18 && h <= 21 ? 4 : 8;
+    return {
+      hour: h,
+      base_demand_mw: baseMw,
+      managed_ev_mw: managedEv,
+      unmanaged_ev_mw: unmanagedEv,
+      managed_total_mw: baseMw + managedEv,
+      unmanaged_total_mw: baseMw + unmanagedEv,
+      grid_capacity_mw: 110,
+      managed_utilization_pct: Math.round(((baseMw + managedEv) / 110) * 100),
+      unmanaged_util_pct: Math.round(((baseMw + unmanagedEv) / 110) * 100),
+      recommendation: h >= 23 || h <= 5 || (h >= 11 && h <= 14) ? 'CHARGE' : h >= 18 && h <= 21 ? 'AVOID' : 'PARTIAL',
+    };
+  }),
+  solver: 'LP-optimized (60% EV adoption)',
 };
 
 export const MOCK_RECOMMENDATIONS: LocationRecommendation[] = [

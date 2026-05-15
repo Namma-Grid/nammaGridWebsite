@@ -10,10 +10,10 @@ const DEMAND_DATA = Array.from({ length: 24 }, (_, h) => ({
 }));
 
 const QUICK_STATS = [
-  { icon: '⚡', value: '847', label: 'Charging stations mapped across Bengaluru' },
-  { icon: '💚', value: '₹180/mo', label: 'Average savings by charging off-peak' },
-  { icon: '⏱️', value: '8 min', label: 'Average wait time today' },
-  { icon: '📍', value: '1.2 km', label: 'Nearest station from city center' },
+  { icon: '⚡', value: '5,880', label: 'Charging stations across Karnataka (2026)' },
+  { icon: '💚', value: '₹180–₹500/mo', label: 'Estimated savings by charging off-peak (ToU tariff)' },
+  { icon: '⏱️', value: '8–17 min', label: 'Average wait time (peak vs off-peak hours)' },
+  { icon: '📍', value: '1.2 km', label: 'Avg. distance to nearest station in central Bengaluru' },
 ];
 
 function BestTimeChart() {
@@ -51,12 +51,12 @@ function BestTimeChart() {
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
           <div className="text-xs font-bold text-emerald-700 mb-0.5">💚 Best Window</div>
           <div className="text-sm font-bold text-emerald-800">11 PM – 5 AM</div>
-          <div className="text-[11px] text-emerald-600">Cheapest & least congested</div>
+          <div className="text-[11px] text-emerald-600">Cheapest & least congested · BESCOM ToU tariff applies</div>
         </div>
         <div className="p-3 rounded-xl bg-red-50 border border-red-200">
           <div className="text-xs font-bold text-red-700 mb-0.5">🔴 Avoid if possible</div>
           <div className="text-sm font-bold text-red-800">6 PM – 9 PM</div>
-          <div className="text-[11px] text-red-600">Peak demand — expect waits</div>
+          <div className="text-[11px] text-red-600">Peak demand · 78% stations show high wait times</div>
         </div>
       </div>
     </div>
@@ -82,7 +82,7 @@ export default function CitizenHome() {
           <span className="text-slate-900"> in Bengaluru</span>
         </h1>
         <p className="text-slate-500 text-base sm:text-lg max-w-xl leading-relaxed mb-8">
-          AI-powered charging intelligence for smarter, cheaper, stress-free charging
+          AI-powered charging intelligence — save up to ₹500/month and avoid the 6–9 PM rush
         </p>
         <div className="flex flex-wrap gap-3">
           <Link href="/citizen/routes" className="px-5 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-500/20">
@@ -117,7 +117,7 @@ export default function CitizenHome() {
             href: '/citizen/routes',
             icon: '🗺️',
             title: 'Plan My Route',
-            desc: 'Find the fastest path to your destination with charging stops along the way',
+            desc: 'Find the fastest route with real-time EV density, charging stops, and wait-time estimates along the way',
             color: 'text-emerald-600',
             iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-500',
             border: 'border-emerald-100/60',
@@ -127,7 +127,7 @@ export default function CitizenHome() {
             href: '/citizen/forecast',
             icon: '📊',
             title: 'Charging Forecast',
-            desc: 'See how busy charging stations are at different times in your neighborhood',
+            desc: 'See today\'s charging congestion by zone — and find the cheapest window to plug in',
             color: 'text-blue-600',
             iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-500',
             border: 'border-blue-100/60',
@@ -137,7 +137,7 @@ export default function CitizenHome() {
             href: '/citizen/explore',
             icon: '🏙️',
             title: 'Explore 3D City',
-            desc: 'Drive through a 3D Bengaluru and discover charging stations near you',
+            desc: 'Explore a live 3D map of Bengaluru — find charging stations, priority zones, and real-time grid load',
             color: 'text-purple-600',
             iconBg: 'bg-gradient-to-br from-purple-500 to-violet-500',
             border: 'border-purple-100/60',

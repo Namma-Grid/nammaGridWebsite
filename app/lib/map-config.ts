@@ -5,9 +5,13 @@ export const DEFAULT_ZOOM = 12;
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 16;
 
-// CartoDB Voyager — free, no API key, clean light map aesthetic
+// CartoDB Voyager — free, no API key, clean light map aesthetic (operator/hex maps)
 export const TILE_URL =
   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+// CartoDB Dark Matter — for citizen route planner (matches dark design language)
+export const DARK_TILE_URL =
+  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 
 export const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';

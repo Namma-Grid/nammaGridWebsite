@@ -18,7 +18,7 @@ export default function OperatorLayout({ children }: { children: React.ReactNode
               <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs">⚡</div>
               <span className="text-slate-700 font-bold text-sm">NammaGrid Operator</span>
             </div>
-            <p className="text-slate-400 text-xs">BESCOM × AI for Bharat Hackathon 2026 · Restricted Access</p>
+            <p className="text-slate-400 text-xs">BESCOM × AI for Bharat Hackathon 2026 · Built on: H3 (Uber) · GradientBoosting · LP Optimization · Leaflet · Three.js · Restricted Access</p>
             <a href="/about" className="text-xs text-blue-500 hover:underline">Impact & Business Case →</a>
           </div>
         </footer>

@@ -13,7 +13,7 @@ export default function CitizenLayout({ children }: { children: React.ReactNode 
               <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs">🚗</div>
               <span className="text-slate-700 font-bold text-sm">NammaGrid for EV Drivers</span>
             </div>
-            <p className="text-slate-400 text-xs">BESCOM × AI for Bharat Hackathon 2026</p>
+            <p className="text-slate-400 text-xs">BESCOM × AI for Bharat Hackathon 2026 · Built on: H3 (Uber) · GradientBoosting · LP Optimization · Leaflet · Three.js</p>
             <a href="/about" className="text-xs text-emerald-600 hover:underline">Impact & Business Case →</a>
           </div>
         </footer>

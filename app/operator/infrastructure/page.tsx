@@ -128,14 +128,14 @@ export default function OperatorInfraPage() {
 
   return (
     <div className="page-container">
-      <SectionWrapper id="infrastructure" title="Infrastructure Location Planner" subtitle="ML-scored station site recommendations, underserved zone analysis, and AI-driven infrastructure insights." icon="🏗️" badge="Part B">
+      <SectionWrapper id="infrastructure" title="Infrastructure Location Planner" subtitle="ML-scored station site recommendations (composite score: demand pressure 30% · EV growth rate 35% · infrastructure gap 20% · feeder headroom 15%). Benchmarked against ISGF BESCOM load flow study." icon="🏗️" badge="Part B — Infrastructure Location Planning">
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {[
-            { v: '1,519', l: 'Zones Analysed', c: 'text-blue-600' },
-            { v: '47', l: 'Priority Zones', c: 'text-red-500' },
-            { v: recs.length || '23', l: 'Recommended Sites', c: 'text-emerald-600' },
-            { v: '~340k', l: 'EVs by 2027', c: 'text-purple-600' },
+            { v: '1,519', l: 'H3 Cells Analysed (Resolution 8)', c: 'text-blue-600' },
+            { v: '47', l: 'Priority Zones (23 Urgent + 24 High)', c: 'text-red-500' },
+            { v: `${recs.length || 8} shown · 23 total`, l: 'Recommended Sites', c: 'text-emerald-600' },
+            { v: '~3.4L', l: 'Projected EVs by 2027 · Bengaluru', c: 'text-purple-600' },
           ].map((s) => (
             <div key={s.l} className="stat-card text-center">
               <div className={`stat-value ${s.c}`}>{s.v}</div>
@@ -263,6 +263,11 @@ export default function OperatorInfraPage() {
             </div>
           </div>
         )}
+
+        {/* Growth rate footnote */}
+        <div className="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500">
+          * EV growth rates based on Karnataka RTO Q1 2026 data: 54,379 registrations statewide in Q1 2026 (+40% YoY). Bengaluru contributing ~53% of statewide registrations. Zone-level rates are modelled from POI density and historical BESCOM zone data. Investment estimate: ₹45L per 7-port 154kW station.
+        </div>
 
         {/* Tab: AI Insights */}
         {tab === 'AI Insights' && (

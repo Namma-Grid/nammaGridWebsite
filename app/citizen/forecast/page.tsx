@@ -17,7 +17,7 @@ const ZONES = [
 ];
 
 const DUMMY_TIPS: Record<string, string> = {
-  'Koramangala': '💡 Best time to charge in Koramangala: **11 PM – 2 AM**. Off-peak tariff saves you ₹45 per session. Avoid 6–9 PM when 78% of stations show high wait times.',
+  'Koramangala': '💡 Best time to charge in Koramangala: **11 PM – 2 AM**. BESCOM\'s Time-of-Use tariff drops to ₹3.8/kWh at night vs ₹6.8/kWh during peak — that\'s ₹45–₹180 saved per session depending on your battery size. 78% of Koramangala stations show high wait times between 6–9 PM. Early morning (1–4 AM) has the lowest grid load of the day.',
   'Whitefield': '💡 Whitefield sweet spot: **5–7 AM** — minimal queues and off-peak rates. Evening peak (5–8 PM) adds 15+ min wait and costs ₹38 more. Pre-charge overnight where possible.',
   'Indiranagar': '💡 In Indiranagar, charge between **10 PM – 12 AM** for the lowest rates. Avoid 7–9 PM rush — station utilisation hits 91% during that window, expect a 12 min wait.',
   'Jayanagar': '💡 Jayanagar off-peak window: **Midnight – 5 AM**. You can save up to ₹52 vs peak-hour charging. Morning commuters should pre-charge the night before.',
@@ -48,7 +48,7 @@ function DemandMeter({ level }: { level: 'Low' | 'Medium' | 'High' }) {
       <div>
         <h3 className="text-base font-bold text-slate-800 mb-1">Current Demand Level</h3>
         <p className={`text-sm font-medium ${config.color}`}>{config.msg}</p>
-        <p className="text-xs text-slate-500 mt-1">Based on real-time grid data</p>
+        <p className="text-xs text-slate-500 mt-1">Based on ML forecast · BESCOM EV AI · Updated hourly</p>
       </div>
     </div>
   );
@@ -65,6 +65,69 @@ function FriendlyTooltip({ active, payload, label }: any) {
       <p className="font-semibold text-slate-700">{label}:00</p>
       <p className="text-slate-500">Congestion: <span className={v > 70 ? 'text-red-600' : v > 45 ? 'text-amber-600' : 'text-emerald-600'}>{congestion}</span></p>
       <p className="text-slate-500">Expected wait: {wait}</p>
+    </div>
+  );
+}
+
+const BATTERY_OPTIONS = [
+  { label: '3 kWh (2-wheeler)', kWh: 3 },
+  { label: '22 kWh (small car)', kWh: 22 },
+  { label: '40 kWh (mid-size)', kWh: 40 },
+  { label: '75 kWh (large car)', kWh: 75 },
+];
+
+function SavingsCalculator() {
+  const [batteryIdx, setBatteryIdx] = useState(1);
+  const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
+  const battery = BATTERY_OPTIONS[batteryIdx];
+  const monthlyKwh = battery.kWh * sessionsPerWeek * 4.3;
+  const peakCost = Math.round(monthlyKwh * 6.8);
+  const offPeakCost = Math.round(monthlyKwh * 3.8);
+  const saving = peakCost - offPeakCost;
+
+  return (
+    <div className="glass-card-static p-5 mt-5">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xl">🔋</span>
+        <h3 className="text-base font-bold text-slate-800">Quick Savings Estimate</h3>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div>
+          <label className="text-xs text-slate-500 font-medium block mb-1">Battery size</label>
+          <select
+            value={batteryIdx}
+            onChange={(e) => setBatteryIdx(Number(e.target.value))}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+          >
+            {BATTERY_OPTIONS.map((o, i) => <option key={o.label} value={i}>{o.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 font-medium block mb-1">Sessions/week</label>
+          <select
+            value={sessionsPerWeek}
+            onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+          >
+            {[1, 2, 3, 4, 5, 7].map((n) => <option key={n} value={n}>{n}×</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between py-2 border-b border-slate-100">
+          <span className="text-slate-500">Charging at peak (6–9 PM)</span>
+          <span className="font-semibold text-red-600">₹{peakCost.toLocaleString('en-IN')} / month</span>
+        </div>
+        <div className="flex justify-between py-2 border-b border-slate-100">
+          <span className="text-slate-500">Charging off-peak (11 PM+)</span>
+          <span className="font-semibold text-emerald-600">₹{offPeakCost.toLocaleString('en-IN')} / month</span>
+        </div>
+        <div className="flex justify-between py-2">
+          <span className="font-bold text-slate-700">You could save</span>
+          <span className="font-extrabold text-emerald-700 text-base">₹{saving.toLocaleString('en-IN')} / month 💚</span>
+        </div>
+      </div>
+      <p className="text-[10px] text-slate-400 mt-3">Based on BESCOM ToU tariff: ₹3.8/kWh off-peak vs ₹6.8/kWh peak · {Math.round(monthlyKwh)} kWh/month estimated</p>
     </div>
   );
 }
@@ -170,7 +233,7 @@ export default function CitizenForecastPage() {
       </div>
 
       {/* Smart charging tip */}
-      <div className="glass-card-static p-5">
+      <div className="glass-card-static p-5 mb-0">
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">💡</span>
@@ -191,6 +254,9 @@ export default function CitizenForecastPage() {
           <MarkdownView content={tip} />
         </div>
       </div>
+
+      {/* Savings calculator */}
+      <SavingsCalculator />
     </div>
   );
 }
