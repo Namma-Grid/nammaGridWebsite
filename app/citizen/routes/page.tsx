@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import TripPlanner from '@/app/components/citizen/TripPlanner';
 import { LOCATIONS, generateRoute, getRouteInsights } from '@/app/data/ev-routes';
@@ -27,6 +27,50 @@ export default function CitizenRoutesPage() {
   const [route, setRoute] = useState<EVRoute | null>(null);
   const [loading, setLoading] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetCollapsed, setSheetCollapsed] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startY: number; moved: boolean } | null>(null);
+
+  function onHandlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    dragRef.current = { startY: e.clientY, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onHandlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current;
+    if (!d) return;
+    const dy = e.clientY - d.startY;
+    if (Math.abs(dy) > 4) d.moved = true;
+    if (sheetRef.current) {
+      // Soft live feedback: only allow drag in the "open" direction relative to current state
+      const clamped = sheetCollapsed
+        ? Math.max(-140, Math.min(20, dy))
+        : Math.max(-20, Math.min(140, dy));
+      sheetRef.current.style.transform = `translateY(${clamped}px)`;
+      sheetRef.current.style.transition = 'none';
+    }
+  }
+
+  function onHandlePointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current;
+    if (!d) return;
+    const dy = e.clientY - d.startY;
+    const moved = d.moved;
+    dragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (sheetRef.current) {
+      sheetRef.current.style.transition = 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1)';
+      sheetRef.current.style.transform = '';
+    }
+    if (!moved) {
+      setSheetCollapsed((c) => !c);
+      return;
+    }
+    if (sheetCollapsed && dy < -30) setSheetCollapsed(false);
+    else if (!sheetCollapsed && dy > 30) setSheetCollapsed(true);
+  }
 
   useEffect(() => {
     if (!origin || !destination || origin.id === destination.id) {
@@ -41,7 +85,10 @@ export default function CitizenRoutesPage() {
         if (ac.signal.aborted) return;
         setRoute(r);
         setLoading(false);
-        if (r) setSheetOpen(true);
+        if (r) {
+          setSheetOpen(true);
+          setSheetCollapsed(false);
+        }
       })
       .catch(() => {
         /* AbortError */
@@ -144,12 +191,12 @@ export default function CitizenRoutesPage() {
 
       {/* Bottom sheet — slides up when route found */}
       {sheetOpen && route && (
-        <div className="bottom-sheet relative">
-          {/* Drag handle */}
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full bg-slate-300/70" />
-
+        <div
+          ref={sheetRef}
+          className={`bottom-sheet relative ${sheetCollapsed ? 'is-collapsed' : ''}`}
+        >
           {/* Density bar across the very top */}
-          <div className="absolute top-0 left-0 right-0 h-[3px] flex overflow-hidden rounded-t-[20px]">
+          <div className="absolute top-0 left-0 right-0 h-[3px] flex overflow-hidden rounded-t-[20px] pointer-events-none">
             {route.segments.map((seg, i) => {
               const r = seg.evCount / maxEvs;
               const color =
@@ -168,8 +215,22 @@ export default function CitizenRoutesPage() {
             })}
           </div>
 
+          {/* Drag handle — full-width hit target */}
+          <button
+            type="button"
+            onPointerDown={onHandlePointerDown}
+            onPointerMove={onHandlePointerMove}
+            onPointerUp={onHandlePointerUp}
+            onPointerCancel={onHandlePointerUp}
+            aria-label={sheetCollapsed ? 'Expand route details' : 'Collapse route details'}
+            className="absolute top-0 left-0 right-0 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none"
+            style={{ touchAction: 'none' }}
+          >
+            <span className="w-10 h-1 rounded-full bg-slate-300 transition-colors group-hover:bg-slate-400" />
+          </button>
+
           {/* Header */}
-          <div className="flex items-start justify-between mb-4 mt-1">
+          <div className="flex items-start justify-between mb-4 mt-4">
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.14em] mb-0.5">
                 Your route
@@ -199,48 +260,51 @@ export default function CitizenRoutesPage() {
             <Stat label="Traffic" value={peakLabel} valueClass={peakColorClass} />
           </div>
 
-          {/* Best charging stop — accent stripe, not full wash */}
-          {bestStation && (
-            <div className="relative pl-3 py-2 mb-3">
-              <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-emerald-500" />
-              <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider mb-0.5">
-                Best charging stop
-              </p>
-              <p className="text-sm font-semibold text-slate-900">{bestStation.name}</p>
-              <p className="text-[11px] text-slate-500 font-mono">
-                {bestStation.kw} kW · {bestStation.operator}
-              </p>
-            </div>
-          )}
+          {/* Collapsible content — hidden when sheet is collapsed */}
+          <div className="sheet-collapsible">
+            {/* Best charging stop — accent stripe, not full wash */}
+            {bestStation && (
+              <div className="relative pl-3 py-2 mb-3">
+                <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-emerald-500" />
+                <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider mb-0.5">
+                  Best charging stop
+                </p>
+                <p className="text-sm font-semibold text-slate-900">{bestStation.name}</p>
+                <p className="text-[11px] text-slate-500 font-mono">
+                  {bestStation.kw} kW · {bestStation.operator}
+                </p>
+              </div>
+            )}
 
-          {/* Insights */}
-          {insights.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-200">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                On this route
-              </p>
-              <ul className="space-y-1.5">
-                {insights.map((ins) => (
-                  <li
-                    key={ins.id}
-                    className="flex items-start gap-2 text-[12px] leading-snug text-slate-700"
-                  >
-                    <span
-                      aria-hidden
-                      className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${
-                        ins.severity === 'warning'
-                          ? 'bg-amber-500'
-                          : ins.severity === 'positive'
-                          ? 'bg-emerald-500'
-                          : 'bg-slate-400'
-                      }`}
-                    />
-                    <span>{ins.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+            {/* Insights */}
+            {insights.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-200">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  On this route
+                </p>
+                <ul className="space-y-1.5">
+                  {insights.map((ins) => (
+                    <li
+                      key={ins.id}
+                      className="flex items-start gap-2 text-[12px] leading-snug text-slate-700"
+                    >
+                      <span
+                        aria-hidden
+                        className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${
+                          ins.severity === 'warning'
+                            ? 'bg-amber-500'
+                            : ins.severity === 'positive'
+                            ? 'bg-emerald-500'
+                            : 'bg-slate-400'
+                        }`}
+                      />
+                      <span>{ins.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

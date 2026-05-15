@@ -81,7 +81,7 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
   const initRef = useRef(false);
   const removedRef = useRef(false);
-  const [loaded, setLoaded] = useState(false);
+  const [mapVersion, setMapVersion] = useState(0);
 
   // ── Initialise Leaflet map once ─────────────────────────────────────────
   useEffect(() => {
@@ -114,7 +114,9 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
 
         layerGroupRef.current = L.layerGroup().addTo(map);
         mapInstanceRef.current = map;
-        setLoaded(true);
+        // Bump version on every fresh map so the draw effect re-fires for
+        // strict-mode remounts / HMR — otherwise the new map has no route drawn.
+        setMapVersion((v) => v + 1);
 
         // Deferred sizing — safe guard against _leaflet_pos error
         setTimeout(() => { if (!removedRef.current) safeInvalidate(map); }, 50);
@@ -130,12 +132,13 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
+      layerGroupRef.current = null;
       initRef.current = false;
     };
   }, []);
 
   useEffect(() => {
-    if (!mapInstanceRef.current || !layerGroupRef.current || !loaded) return;
+    if (!mapInstanceRef.current || !layerGroupRef.current || mapVersion === 0) return;
 
     import('leaflet').then((L) => {
       const lg = layerGroupRef.current;
@@ -211,7 +214,9 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
         maxZoom: 15,
       });
     });
-  }, [route, loaded]);
+  }, [route, mapVersion]);
+
+  const loaded = mapVersion > 0;
 
   return (
     <div className="map-container relative h-full">
