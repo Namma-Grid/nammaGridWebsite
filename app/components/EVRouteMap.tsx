@@ -22,6 +22,59 @@ function safeInvalidate(map: L.Map | null) {
   }
 }
 
+// ─── Perceptual 3-stop heat ramp: emerald → amber → rose ────────────────────
+const HEAT_STOPS: Array<[number, [number, number, number]]> = [
+  [0.0, [16, 185, 129]],   // emerald-500
+  [0.5, [245, 158, 11]],   // amber-500
+  [1.0, [225, 29, 72]],    // rose-600
+];
+
+function lerp(a: number, b: number, t: number) {
+  return Math.round(a + (b - a) * t);
+}
+
+function heatColor(ratio: number): string {
+  const t = Math.max(0, Math.min(1, ratio));
+  for (let i = 1; i < HEAT_STOPS.length; i++) {
+    const [t1, c1] = HEAT_STOPS[i];
+    if (t <= t1) {
+      const [t0, c0] = HEAT_STOPS[i - 1];
+      const local = (t - t0) / (t1 - t0);
+      return `rgb(${lerp(c0[0], c1[0], local)}, ${lerp(c0[1], c1[1], local)}, ${lerp(c0[2], c1[2], local)})`;
+    }
+  }
+  return `rgb(${HEAT_STOPS[HEAT_STOPS.length - 1][1].join(', ')})`;
+}
+
+// ─── SVG marker factory ─────────────────────────────────────────────────────
+function svgIcon(L: typeof import('leaflet'), html: string, size: number) {
+  return L.divIcon({
+    className: 'ev-pin',
+    html,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+const ORIGIN_PIN = `
+  <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="11" cy="11" r="11" fill="#10b981" fill-opacity="0.18"/>
+    <circle cx="11" cy="11" r="7" fill="#059669" stroke="white" stroke-width="2.5"/>
+    <circle cx="11" cy="11" r="2.5" fill="white"/>
+  </svg>`;
+
+const DEST_PIN = `
+  <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 6px rgba(190, 18, 60, 0.35));">
+    <path d="M14 0C6.27 0 0 6.27 0 14c0 9.5 14 22 14 22s14-12.5 14-22C28 6.27 21.73 0 14 0z" fill="#be123c"/>
+    <circle cx="14" cy="14" r="5.5" fill="white"/>
+  </svg>`;
+
+const STATION_PIN = `
+  <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(5, 150, 105, 0.4));">
+    <rect x="1" y="1" width="20" height="20" rx="6" fill="white" stroke="#059669" stroke-width="2"/>
+    <path d="M12.2 5L7 12h3.6L9.8 17l5.2-7h-3.6l.8-5z" fill="#059669"/>
+  </svg>`;
+
 export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -92,56 +145,43 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
       lg.clearLayers();
       if (!route) return;
 
-      // ① Colour-coded segments (green → red by EV density) ───────────────
-      const maxEV = Math.max(...route.segments.map((s) => s.evCount));
+      // ① Heat-colored polyline with glow underlay (the "current" effect) ──
+      const maxEV = Math.max(...route.segments.map((s) => s.evCount), 1);
 
-      // Route segments with EV-density color gradient
+      // Pass 1: glow underlay — wide, low-opacity, perceptual heat color
       route.segments.forEach((seg) => {
-        const ratio = maxEV > 0 ? seg.evCount / maxEV : 0;
-        const r = Math.round(ratio > 0.5 ? 255 : ratio * 2 * 255);
-        const g = Math.round(ratio > 0.5 ? (1 - ratio) * 2 * 255 : 255);
-        const color = `rgb(${r}, ${g}, 60)`;
+        const ratio = seg.evCount / maxEV;
+        const color = heatColor(ratio);
+        L.polyline([seg.from, seg.to], {
+          color,
+          weight: 14,
+          opacity: 0.18,
+          lineCap: 'round',
+          lineJoin: 'round',
+          interactive: false,
+        }).addTo(lg);
+      });
 
+      // Pass 2: solid line on top
+      route.segments.forEach((seg) => {
+        const ratio = seg.evCount / maxEV;
+        const color = heatColor(ratio);
         const line = L.polyline([seg.from, seg.to], {
           color,
-          weight: 6,
-          opacity: 0.88,
+          weight: 5,
+          opacity: 0.95,
           lineCap: 'round',
           lineJoin: 'round',
         }).addTo(lg);
-
         line.bindTooltip(`${seg.evCount} EVs on segment`, {
           className: 'hex-tooltip',
           sticky: true,
         });
       });
 
-      L.polyline(route.path, {
-        color: '#2563EB',
-        weight: 2,
-        opacity: 0.4,
-        dashArray: '8, 12',
-      }).addTo(lg);
-
-      // ③ Charging station markers along the route ────────────────────────
+      // ② Charging stations on the route ──────────────────────────────────
       route.stationsOnPath.forEach((station) => {
-        const stationIcon = L.divIcon({
-          className: '',
-          html: `
-            <div style="
-              width: 26px; height: 26px; border-radius: 6px;
-              background: linear-gradient(135deg, #10B981, #059669);
-              border: 2px solid #fff;
-              box-shadow: 0 2px 8px rgba(16,185,129,0.45);
-              display: flex; align-items: center; justify-content: center;
-              font-size: 13px; line-height: 1;
-            ">⚡</div>
-          `,
-          iconSize: [26, 26],
-          iconAnchor: [13, 13],
-        });
-
-        L.marker([station.lat, station.lng], { icon: stationIcon })
+        L.marker([station.lat, station.lng], { icon: svgIcon(L, STATION_PIN, 22) })
           .addTo(lg)
           .bindTooltip(
             `<strong>${station.name}</strong><br/>${station.operator} · ${station.kw} kW`,
@@ -149,46 +189,26 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
           );
       });
 
-      // ④ Origin marker ────────────────────────────────────────────────────
-      const originIcon = L.divIcon({
-        className: '',
-        html: `
-          <div style="
-            width: 36px; height: 36px; border-radius: 50%;
-            background: linear-gradient(135deg, #059669, #047857);
-            border: 3px solid #fff; display: flex; align-items: center;
-            justify-content: center; font-size: 16px; box-shadow: 0 4px 12px rgba(5,150,105,0.35);
-          ">🟢</div>
-        `,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-      });
-
-      L.marker([route.origin.lat, route.origin.lng], { icon: originIcon })
+      // ③ Origin pin — disc with white inner ring ─────────────────────────
+      L.marker([route.origin.lat, route.origin.lng], { icon: svgIcon(L, ORIGIN_PIN, 22) })
         .addTo(lg)
-        .bindTooltip(`Start: ${route.origin.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -20] });
+        .bindTooltip(`Start: ${route.origin.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -16] });
 
-      // ⑤ Destination marker ───────────────────────────────────────────────
-      const destIcon = L.divIcon({
-        className: '',
-        html: `
-          <div style="
-            width: 36px; height: 36px; border-radius: 50%;
-            background: linear-gradient(135deg, #DC2626, #B91C1C);
-            border: 3px solid #fff; display: flex; align-items: center;
-            justify-content: center; font-size: 16px; box-shadow: 0 4px 12px rgba(220,38,38,0.35);
-          ">📍</div>
-        `,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-      });
-
-      L.marker([route.destination.lat, route.destination.lng], { icon: destIcon })
+      // ④ Destination pin — teardrop ──────────────────────────────────────
+      L.marker([route.destination.lat, route.destination.lng], {
+        icon: L.divIcon({
+          className: 'ev-pin',
+          html: DEST_PIN,
+          iconSize: [28, 36],
+          iconAnchor: [14, 36],
+        }),
+      })
         .addTo(lg)
-        .bindTooltip(`End: ${route.destination.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -20] });
+        .bindTooltip(`End: ${route.destination.name}`, { className: 'hex-tooltip', direction: 'top', offset: [0, -36] });
 
-      map.fitBounds(route.path.map((p) => [p[0], p[1]]) as [number, number][], {
-        padding: [50, 50],
+      map.fitBounds(route.path as [number, number][], {
+        padding: [60, 60],
+        maxZoom: 15,
       });
     });
   }, [route, loaded]);
@@ -205,20 +225,12 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
         </div>
       )}
 
-      {!route && loaded && !loading && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="glass-card-static px-6 py-4 text-center">
-            <p className="text-slate-400 text-sm">Select origin & destination to view route</p>
-          </div>
-        </div>
-      )}
-
       {loading && loaded && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[400] pointer-events-none">
           <div className="glass-card-static px-4 py-2 flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-slate-500 text-xs font-medium">
-              Calculating route along real roads…
+            <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-slate-600 text-[11px] font-medium tracking-wide uppercase">
+              Routing
             </span>
           </div>
         </div>
