@@ -211,10 +211,11 @@ export default function CityScene({
     container.appendChild(renderer.domElement);
 
     // ── Scene + fog ──────────────────────────────────────────────────────
+    // Locked to a clear sunny midday — matches the "always day" mode.
     const scene = new THREE.Scene();
-    const skyColor = new THREE.Color(0xcfe7ff);
+    const skyColor = new THREE.Color(0x9bd1ff);
     scene.background = skyColor;
-    const fog = new THREE.Fog(skyColor.getHex(), 250, 700);
+    const fog = new THREE.Fog(skyColor.getHex(), 300, 800);
     scene.fog = fog;
 
     // ── Camera ───────────────────────────────────────────────────────────
@@ -539,9 +540,10 @@ export default function CityScene({
     };
     window.addEventListener('resize', onResize);
 
-    // ── Time of day (1 sim-hour per 4 real seconds) ──────────────────────
-    const SIM_HOURS_PER_SECOND = 0.25;
-    let simHour = 9; // start at 9 AM
+    // ── Time of day — LOCKED to noon (always day, always sunny) ─────────
+    // Sim hour is intentionally constant; HUD shows 12:00, lighting stays
+    // at the daytime extreme of the lerps below.
+    const simHour = 12;
 
     // ── Pre-allocated math helpers ───────────────────────────────────────
     const cameraOffset = new THREE.Vector3(0, 18, -30);
@@ -550,11 +552,11 @@ export default function CityScene({
     const carMatrix = new THREE.Matrix4();
     const desiredPos = new THREE.Vector3();
     const lookTarget = new THREE.Vector3();
-    const skyDay = new THREE.Color(0xcfe7ff);
+    const skyDay = new THREE.Color(0x9bd1ff);
     const skyNight = new THREE.Color(0x0b1530);
     const ambDay = new THREE.Color(0xffffff);
     const ambNight = new THREE.Color(0x334155);
-    const sunDay = new THREE.Color(0xfff4e6);
+    const sunDay = new THREE.Color(0xfff2cf);
     const sunNight = new THREE.Color(0x4f6abf);
     const tmpSky = new THREE.Color();
     const tmpAmb = new THREE.Color();
@@ -572,9 +574,6 @@ export default function CityScene({
       const dt = Math.min(0.05, (now - prevT) / 1000); // cap dt to 50ms
       prevT = now;
       frameIdx++;
-
-      // ── Sim time ───────────────────────────────────────────────────────
-      simHour = (simHour + dt * SIM_HOURS_PER_SECOND) % 24;
 
       // ── Vehicle input ──────────────────────────────────────────────────
       const dtScale = dt * 60; // normalize against 60 fps baseline
