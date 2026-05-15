@@ -6,7 +6,6 @@ import type {
 } from '@/app/lib/types';
 import { CHARGING_STATIONS } from '@/app/data/charging-stations';
 
-const OSRM_BASE = 'https://router.project-osrm.org';
 const STATION_PROXIMITY_KM = 1.5;
 
 // ─── Notable Bangalore locations for Uber/Ola-style picker ──────────────────
@@ -225,95 +224,7 @@ function evCountFor(fromId: string, toId: string, stepIndex: number): number {
   return 5 + ((seed * (stepIndex + 1) * 17 + 49297) % 30);
 }
 
-// ─── OSRM road-following route ──────────────────────────────────────────────
-// Uses the public OSRM demo server (no key). Demo is rate-limited and not
-// SLA-backed; the synthetic Dijkstra path is the fallback if it fails.
-
-interface OSRMResponse {
-  code: string;
-  routes?: {
-    distance: number;
-    duration: number;
-    geometry: { coordinates: [number, number][] };
-    legs: {
-      steps: { geometry: { coordinates: [number, number][] } }[];
-    }[];
-  }[];
-}
-
-async function generateRouteFromOSRM(
-  origin: LocationOption,
-  dest: LocationOption,
-  locationPath: string[],
-): Promise<EVRoute> {
-  const waypoints = locationPath.map(
-    (id) => LOCATIONS.find((l) => l.id === id)!,
-  );
-  const coordStr = waypoints.map((l) => `${l.lng},${l.lat}`).join(';');
-  const url =
-    `${OSRM_BASE}/route/v1/driving/${coordStr}` +
-    `?overview=full&geometries=geojson&steps=true`;
-
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`OSRM HTTP ${res.status}`);
-  const data: OSRMResponse = await res.json();
-  if (data.code !== 'Ok' || !data.routes?.[0]) {
-    throw new Error(`OSRM code=${data.code}`);
-  }
-
-  const r = data.routes[0];
-  const fullPath: [number, number][] = r.geometry.coordinates.map(
-    ([lng, lat]) => [lat, lng] as [number, number],
-  );
-
-  const segments: RouteSegment[] = [];
-  r.legs.forEach((leg, legIdx) => {
-    const fromId = locationPath[legIdx];
-    const toId = locationPath[legIdx + 1];
-
-    const legCoords: [number, number][] = [];
-    leg.steps.forEach((step) => {
-      step.geometry.coordinates.forEach(([lng, lat]) => {
-        const last = legCoords[legCoords.length - 1];
-        if (!last || last[0] !== lat || last[1] !== lng) {
-          legCoords.push([lat, lng]);
-        }
-      });
-    });
-
-    for (let j = 0; j < legCoords.length - 1; j++) {
-      segments.push({
-        from: legCoords[j],
-        to: legCoords[j + 1],
-        evCount: evCountFor(fromId, toId, j),
-      });
-    }
-  });
-
-  const totalDistKm = r.distance / 1000;
-  const totalDurMin = r.duration / 60;
-  const totalEVs = segments.reduce((s, seg) => s + seg.evCount, 0);
-  const stationsOnPath = findStationsOnPath(fullPath);
-  const viaLocations = locationPath
-    .slice(1, -1)
-    .map((id) => LOCATIONS.find((l) => l.id === id)!.name);
-
-  return {
-    origin,
-    destination: dest,
-    path: fullPath,
-    totalEVs,
-    distance: Math.round(totalDistKm * 10) / 10,
-    estimatedTime: Math.round(totalDurMin),
-    hexesOnPath: locationPath,
-    chargingStations: stationsOnPath.length,
-    segments,
-    stationsOnPath,
-    viaLocations,
-  };
-}
-
-// ─── Synthetic fallback (straight-line hops + sinusoidal jitter) ────────────
+// ─── Synthetic route (straight-line hops + sinusoidal jitter) ───────────────
 
 function generateSyntheticRoute(
   origin: LocationOption,
@@ -379,21 +290,16 @@ function generateSyntheticRoute(
 
 // ─── Public route generator ───────────────────────────────────────────────────
 
-export async function generateRoute(
+export function generateRoute(
   originId: string,
   destId: string,
 ): Promise<EVRoute | null> {
   const origin = LOCATIONS.find((l) => l.id === originId);
   const dest = LOCATIONS.find((l) => l.id === destId);
-  if (!origin || !dest) return null;
+  if (!origin || !dest) return Promise.resolve(null);
 
   const locationPath = dijkstra(originId, destId);
-  if (!locationPath || locationPath.length < 2) return null;
+  if (!locationPath || locationPath.length < 2) return Promise.resolve(null);
 
-  try {
-    return await generateRouteFromOSRM(origin, dest, locationPath);
-  } catch (err) {
-    console.warn('[ev-routes] OSRM failed, using synthetic fallback:', err);
-    return generateSyntheticRoute(origin, dest, locationPath);
-  }
+  return Promise.resolve(generateSyntheticRoute(origin, dest, locationPath));
 }

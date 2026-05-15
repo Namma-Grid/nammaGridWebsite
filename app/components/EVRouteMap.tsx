@@ -194,8 +194,8 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
   }, [route, loaded]);
 
   return (
-    <div className="map-container relative">
-      <div ref={containerRef} className="h-[50vh] min-h-[320px] max-h-[450px] w-full" />
+    <div className="map-container relative h-full">
+      <div ref={containerRef} className="h-full w-full" />
       {!loaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-50/90 to-slate-100/90 rounded-xl">
           <div className="flex flex-col items-center gap-3">
