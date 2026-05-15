@@ -1147,10 +1147,6 @@ body {
 /* ─── Citizen bottom sheet ────────────────────────────────────────────────── */
 
 .bottom-sheet {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   z-index: 30;
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(20px);
@@ -1159,6 +1155,8 @@ body {
   padding: 20px 20px 32px;
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.1);
   animation: slide-up-sheet 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 @keyframes slide-up-sheet {

@@ -69,12 +69,13 @@ export default function CitizenRoutesPage() {
   const insights = route ? getRouteInsights(route) : [];
 
   return (
-    <div className="fixed inset-x-0 bottom-0 top-14 sm:top-16">
-      {/* Full-bleed map */}
-      <EVRouteMap route={route} loading={loading} />
+    <div className="fixed inset-x-0 bottom-0 top-14 sm:top-16 flex flex-col">
+      {/* Map fills the remaining space above the sheet */}
+      <div className="flex-1 relative min-h-0">
+        <EVRouteMap route={route} loading={loading} />
 
-      {/* Floating search card */}
-      <div className="absolute top-4 left-4 right-4 sm:right-auto sm:w-[360px] z-[500]">
+        {/* Floating search card */}
+        <div className="absolute top-4 left-4 right-4 sm:right-auto sm:w-[360px] z-[500]">
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40 p-4">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-sm font-bold text-slate-800">Plan My Route</h1>
@@ -141,6 +142,7 @@ export default function CitizenRoutesPage() {
             Pick origin & destination to see your route →
           </p>
         )}
+        </div>
       </div>
 
       {/* Bottom sheet — slides up when route found */}
