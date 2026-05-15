@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { BANGALORE_CENTER, DARK_TILE_URL, TILE_ATTRIBUTION } from '@/app/lib/map-config';
+import { BANGALORE_CENTER, TILE_URL, TILE_ATTRIBUTION } from '@/app/lib/map-config';
 import type { EVRoute, LocationOption } from '@/app/lib/types';
 
 interface EVRouteMapProps {
@@ -54,7 +54,7 @@ export default function EVRouteMap({ route, loading = false }: EVRouteMapProps) 
           zoomControl: true,
         });
 
-        L.tileLayer(DARK_TILE_URL, {
+        L.tileLayer(TILE_URL, {
           attribution: TILE_ATTRIBUTION,
           maxZoom: 18,
         }).addTo(map);

@@ -288,18 +288,128 @@ function generateSyntheticRoute(
   };
 }
 
+// ─── OSRM road-snapped route ────────────────────────────────────────────────
+// Uses the public OSRM demo server. Free, no API key, but rate-limited and
+// not suitable for production. For production, self-host OSRM or swap to
+// Mapbox Directions / OpenRouteService.
+
+const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving';
+
+interface OsrmStep {
+  geometry: { type: 'LineString'; coordinates: [number, number][] }; // [lng, lat]
+}
+interface OsrmLeg {
+  steps: OsrmStep[];
+  distance: number;
+  duration: number;
+}
+interface OsrmRoute {
+  distance: number; // meters
+  duration: number; // seconds
+  legs: OsrmLeg[];
+}
+interface OsrmResponse {
+  code: string;
+  routes?: OsrmRoute[];
+}
+
+async function osrmRoute(
+  origin: LocationOption,
+  dest: LocationOption,
+  locationPath: string[],
+  signal?: AbortSignal,
+): Promise<EVRoute | null> {
+  const waypoints = locationPath
+    .map((id) => LOCATIONS.find((l) => l.id === id)!)
+    .map((loc) => `${loc.lng},${loc.lat}`)
+    .join(';');
+
+  const url = `${OSRM_BASE}/${waypoints}?overview=full&geometries=geojson&steps=true`;
+
+  let resp: Response;
+  try {
+    resp = await fetch(url, { signal });
+  } catch {
+    return null;
+  }
+  if (!resp.ok) return null;
+
+  const data = (await resp.json()) as OsrmResponse;
+  const route = data.routes?.[0];
+  if (data.code !== 'Ok' || !route) return null;
+  if (route.legs.length !== locationPath.length - 1) return null;
+
+  const fullPath: [number, number][] = [];
+  const segments: RouteSegment[] = [];
+
+  route.legs.forEach((leg, legIdx) => {
+    const fromId = locationPath[legIdx];
+    const toId = locationPath[legIdx + 1];
+
+    const legPath: [number, number][] = [];
+    leg.steps.forEach((step, stepIdx) => {
+      step.geometry.coordinates.forEach((coord, i) => {
+        // Skip first point of step (matches last point of previous step)
+        if (stepIdx > 0 && i === 0) return;
+        legPath.push([coord[1], coord[0]]); // [lng,lat] → [lat,lng]
+      });
+    });
+
+    // Skip first point of subsequent legs (matches end of previous leg)
+    const startIdx = legIdx > 0 ? 1 : 0;
+
+    for (let j = startIdx; j < legPath.length - 1; j++) {
+      segments.push({
+        from: legPath[j],
+        to: legPath[j + 1],
+        evCount: evCountFor(fromId, toId, j),
+      });
+    }
+
+    fullPath.push(...legPath.slice(startIdx));
+  });
+
+  if (fullPath.length < 2) return null;
+
+  const totalDistKm = route.distance / 1000;
+  const totalEVs = segments.reduce((s, seg) => s + seg.evCount, 0);
+  const stationsOnPath = findStationsOnPath(fullPath);
+  const viaLocations = locationPath
+    .slice(1, -1)
+    .map((id) => LOCATIONS.find((l) => l.id === id)!.name);
+
+  return {
+    origin,
+    destination: dest,
+    path: fullPath,
+    totalEVs,
+    distance: Math.round(totalDistKm * 10) / 10,
+    estimatedTime: Math.round(route.duration / 60),
+    hexesOnPath: locationPath,
+    chargingStations: stationsOnPath.length,
+    segments,
+    stationsOnPath,
+    viaLocations,
+  };
+}
+
 // ─── Public route generator ───────────────────────────────────────────────────
 
-export function generateRoute(
+export async function generateRoute(
   originId: string,
   destId: string,
+  signal?: AbortSignal,
 ): Promise<EVRoute | null> {
   const origin = LOCATIONS.find((l) => l.id === originId);
   const dest = LOCATIONS.find((l) => l.id === destId);
-  if (!origin || !dest) return Promise.resolve(null);
+  if (!origin || !dest) return null;
 
   const locationPath = dijkstra(originId, destId);
-  if (!locationPath || locationPath.length < 2) return Promise.resolve(null);
+  if (!locationPath || locationPath.length < 2) return null;
 
-  return Promise.resolve(generateSyntheticRoute(origin, dest, locationPath));
+  // Try road-snapped route via OSRM; fall back to synthetic on failure.
+  const osrmResult = await osrmRoute(origin, dest, locationPath, signal);
+  if (osrmResult) return osrmResult;
+
+  return generateSyntheticRoute(origin, dest, locationPath);
 }
