@@ -287,39 +287,67 @@ export default function CityScene({
     heat.position.y = 0.05;
     scene.add(heat);
 
-    // ── Buildings (3 InstancedMesh — one per zone) ──────────────────────
+    // ── Buildings — dense, zone-coherent blocks ──────────────────────────
+    // Each block gets a dominant zone; most buildings inherit it (80%) so
+    // the city reads as neighborhoods rather than salt-and-pepper noise.
+    // A 2x2 sub-grid per block yields up to 4 buildings; ~25% of slots are
+    // skipped for variety. Scale ranges differ by zone:
+    //   residential — small footprint, low rise
+    //   workplace   — slim footprint, tall (offices)
+    //   marketplace — wide footprint, low (shops/sheds)
     type BuildingSpec = { x: number; z: number; w: number; d: number; h: number };
     const zoneSpecs: Record<string, BuildingSpec[]> = {
       residential: [], workplace: [], marketplace: [],
     };
     const zoneList = ['residential', 'workplace', 'marketplace'] as const;
+    type ZoneKey = (typeof zoneList)[number];
+
+    const ZONE_SCALE: Record<ZoneKey, { wMin: number; wMax: number; hMin: number; hMax: number }> = {
+      residential: { wMin: 5,  wMax: 9,  hMin: 4,  hMax: 14 },
+      workplace:   { wMin: 6,  wMax: 11, hMin: 18, hMax: 52 },
+      marketplace: { wMin: 9,  wMax: 15, hMin: 4,  hMax: 11 },
+    };
+
+    const SUB_GRID = 2;
+    const SUB_CELL = (BLOCK - ROAD_W) / SUB_GRID; // inner cell width
 
     for (let bx = -WORLD_HALF + BLOCK / 2; bx <= WORLD_HALF; bx += BLOCK) {
       for (let bz = -WORLD_HALF + BLOCK / 2; bz <= WORLD_HALF; bz += BLOCK) {
         const blockSeed = bx * 1000 + bz;
-        const numBuildings = 1 + Math.floor(seeded(blockSeed) * 2); // 1–2
+        const dominantZone = zoneList[Math.floor(seeded(blockSeed) * 3)];
 
-        for (let b = 0; b < numBuildings; b++) {
-          const sx = seeded(blockSeed + b * 7 + 1);
-          const sz = seeded(blockSeed + b * 7 + 2);
-          const sh = seeded(blockSeed + b * 7 + 3);
+        for (let sy = 0; sy < SUB_GRID; sy++) {
+          for (let sxi = 0; sxi < SUB_GRID; sxi++) {
+            const subIdx = sy * SUB_GRID + sxi;
+            const slotSeed = blockSeed + subIdx * 53 + 7;
+            // Skip ~25% of slots so blocks aren't packed solid
+            if (seeded(slotSeed) < 0.25) continue;
 
-          const w = 6 + sx * 12;
-          const d = 6 + sz * 12;
-          const h = 5 + sh * 38;
+            // Use dominant zone 80% of the time, otherwise a random zone
+            const zone: ZoneKey = seeded(slotSeed + 1) < 0.8
+              ? dominantZone
+              : zoneList[Math.floor(seeded(slotSeed + 2) * 3)];
 
-          const ox = bx + (sx - 0.5) * (BLOCK - ROAD_W - w);
-          const oz = bz + (sz - 0.5) * (BLOCK - ROAD_W - d);
+            const scale = ZONE_SCALE[zone];
+            const w = scale.wMin + seeded(slotSeed + 3) * (scale.wMax - scale.wMin);
+            const d = scale.wMin + seeded(slotSeed + 4) * (scale.wMax - scale.wMin);
+            const h = scale.hMin + seeded(slotSeed + 5) * (scale.hMax - scale.hMin);
 
-          // Skip if too close to road centers
-          const ax = ((ox + WORLD_HALF) % BLOCK);
-          const az = ((oz + WORLD_HALF) % BLOCK);
-          if (ax < ROAD_W || ax > BLOCK - ROAD_W ||
-              az < ROAD_W || az > BLOCK - ROAD_W) continue;
+            // Sub-cell center within the block, with small jitter
+            const cellCenterX = bx - (BLOCK - ROAD_W) / 2 + SUB_CELL * (sxi + 0.5);
+            const cellCenterZ = bz - (BLOCK - ROAD_W) / 2 + SUB_CELL * (sy + 0.5);
+            const jitterRange = Math.max(0, SUB_CELL - Math.max(w, d) - 2) / 2;
+            const ox = cellCenterX + (seeded(slotSeed + 6) - 0.5) * jitterRange * 2;
+            const oz = cellCenterZ + (seeded(slotSeed + 7) - 0.5) * jitterRange * 2;
 
-          const zoneIdx = Math.floor(seeded(blockSeed + b * 7 + 4) * 3);
-          const zone = zoneList[zoneIdx];
-          zoneSpecs[zone].push({ x: ox, z: oz, w, d, h });
+            // Safety: keep clear of road centerlines
+            const ax = ((ox + WORLD_HALF) % BLOCK);
+            const az = ((oz + WORLD_HALF) % BLOCK);
+            if (ax < ROAD_W * 0.7 || ax > BLOCK - ROAD_W * 0.7 ||
+                az < ROAD_W * 0.7 || az > BLOCK - ROAD_W * 0.7) continue;
+
+            zoneSpecs[zone].push({ x: ox, z: oz, w, d, h });
+          }
         }
       }
     }
@@ -330,6 +358,15 @@ export default function CityScene({
     const buildingInstances: InstancedMesh[] = [];
     const buildingMaterials: MeshStandardMaterial[] = [];
 
+    // Glow-by-demand at the locked noon hour: workplace zones are at peak
+    // (offices full), marketplace mid (lunch crowd), residential nearly idle.
+    // Static values since simHour is constant.
+    const DEMAND_GLOW: Record<ZoneKey, number> = {
+      residential: 0.06,
+      workplace:   0.34,
+      marketplace: 0.20,
+    };
+
     zoneList.forEach((zone) => {
       const specs = zoneSpecs[zone];
       const baseHex = ZONE_COLOR_HEX[zone];
@@ -338,7 +375,7 @@ export default function CityScene({
         roughness: 0.7,
         metalness: 0.05,
         emissive: baseHex,
-        emissiveIntensity: 0,
+        emissiveIntensity: DEMAND_GLOW[zone],
         vertexColors: false,
       });
       buildingMaterials.push(mat);
@@ -364,47 +401,54 @@ export default function CityScene({
       buildingInstances.push(inst);
     });
 
-    // ── Charging Stations ────────────────────────────────────────────────
+    // ── Charging Stations — stylized EV pylon ────────────────────────────
+    // Per station: a slim ground pad, a tall slate body, a status-lit screen
+    // on the front face, and a small LED bar on top. Plus the existing
+    // ground ring as a proximity hint that pulses every frame.
     type StationVis = {
       station: ChargingStation;
       wx: number; wz: number;
-      pillar: Mesh; sphere: Mesh; ring: Mesh;
+      ring: Mesh; screen: Mesh; led: Mesh;
     };
     const stationVis: StationVis[] = [];
 
     // Shared geometries
-    const pillarGeo = new THREE.CylinderGeometry(1.2, 1.5, 16, 6);
-    const sphereGeo = new THREE.SphereGeometry(2.0, 10, 8);
+    const padGeo = new THREE.BoxGeometry(5, 0.3, 3);
+    const stationBodyGeo = new THREE.BoxGeometry(1.6, 5.2, 0.9);
+    const screenGeo = new THREE.BoxGeometry(1.3, 1.6, 0.08);
+    const ledGeo = new THREE.BoxGeometry(1.6, 0.25, 0.9);
     const ringGeo = new THREE.RingGeometry(4, 5.2, 24);
-    const signPostGeo = new THREE.BoxGeometry(0.4, 8, 0.4);
-    const signPlateGeo = new THREE.BoxGeometry(7, 1.8, 0.25);
 
-    // Shared materials (per status — only 3 each)
+    // Shared neutral chassis materials
+    const padMat = new THREE.MeshStandardMaterial({
+      color: 0x1f2937, roughness: 0.6, metalness: 0.15,
+    });
+    const bodyMatStation = new THREE.MeshStandardMaterial({
+      color: 0x334155, roughness: 0.45, metalness: 0.25,
+    });
+
+    // Status-keyed emissive parts (screen + LED + ring)
     const stationMatCache: Record<string, {
-      pillar: MeshStandardMaterial;
-      sphere: MeshStandardMaterial;
+      screen: MeshStandardMaterial;
+      led: MeshStandardMaterial;
       ring: MeshBasicMaterial;
     }> = {};
     (['available', 'busy', 'offline'] as const).forEach((st) => {
       const c = STATUS_COLORS[st];
       stationMatCache[st] = {
-        pillar: new THREE.MeshStandardMaterial({
-          color: c, emissive: c, emissiveIntensity: 0.5,
-          roughness: 0.25, metalness: 0.4,
+        screen: new THREE.MeshStandardMaterial({
+          color: 0x0b1220, emissive: c, emissiveIntensity: 1.1,
+          roughness: 0.2, metalness: 0.1,
         }),
-        sphere: new THREE.MeshStandardMaterial({
-          color: c, emissive: c, emissiveIntensity: 1.0,
-          roughness: 0.1, transparent: true, opacity: 0.9,
+        led: new THREE.MeshStandardMaterial({
+          color: c, emissive: c, emissiveIntensity: 0.9,
+          roughness: 0.3,
         }),
         ring: new THREE.MeshBasicMaterial({
           color: c, transparent: true, opacity: 0.4,
           side: THREE.DoubleSide, depthWrite: false,
         }),
       };
-    });
-    const signPostMat = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.5 });
-    const signPlateMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff, emissive: 0xfbbf24, emissiveIntensity: 0.3, roughness: 0.3,
     });
 
     const stationPositions: { id: string; wx: number; wz: number }[] = [];
@@ -414,27 +458,31 @@ export default function CityScene({
 
       const mats = stationMatCache[station.status] ?? stationMatCache.available;
 
-      const pillar = new THREE.Mesh(pillarGeo, mats.pillar);
-      pillar.position.set(wx, 8, wz);
-      scene.add(pillar);
+      const pad = new THREE.Mesh(padGeo, padMat);
+      pad.position.set(wx, 0.15, wz);
+      pad.receiveShadow = true;
+      scene.add(pad);
 
-      const sphere = new THREE.Mesh(sphereGeo, mats.sphere);
-      sphere.position.set(wx, 17, wz);
-      scene.add(sphere);
+      const stationBody = new THREE.Mesh(stationBodyGeo, bodyMatStation);
+      stationBody.position.set(wx, 2.75, wz);
+      stationBody.castShadow = true;
+      scene.add(stationBody);
+
+      const screen = new THREE.Mesh(screenGeo, mats.screen);
+      // Inset on the +z face of the body
+      screen.position.set(wx, 3.4, wz + 0.5);
+      scene.add(screen);
+
+      const led = new THREE.Mesh(ledGeo, mats.led);
+      led.position.set(wx, 5.45, wz);
+      scene.add(led);
 
       const ring = new THREE.Mesh(ringGeo, mats.ring);
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(wx, 0.1, wz);
       scene.add(ring);
 
-      const post = new THREE.Mesh(signPostGeo, signPostMat);
-      post.position.set(wx, 4, wz - 2.5);
-      scene.add(post);
-      const plate = new THREE.Mesh(signPlateGeo, signPlateMat);
-      plate.position.set(wx, 8.2, wz - 2.5);
-      scene.add(plate);
-
-      stationVis.push({ station, wx, wz, pillar, sphere, ring });
+      stationVis.push({ station, wx, wz, ring, screen, led });
     });
     onStationsReadyRef.current(stationPositions);
 
@@ -728,11 +776,9 @@ export default function CityScene({
       sun.intensity = 0.2 + dayFactor * 0.95;
       sun.color.copy(sunNight).lerp(sunDay, dayFactor);
 
-      // Building emissive at night (toggle via material)
-      const nightGlow = (1 - dayFactor) * 0.45;
-      for (let i = 0; i < buildingMaterials.length; i++) {
-        buildingMaterials[i].emissiveIntensity = nightGlow;
-      }
+      // Building emissive is static (demand-based, set at init) since the
+      // sim clock is locked. If a time toggle ships later, restore the
+      // dayFactor-driven nightGlow modulation here.
 
       // ── NPC EVs — advance, wrap, write instance matrices ─────────────
       for (let i = 0; i < npcs.length; i++) {
@@ -790,7 +836,9 @@ export default function CityScene({
           const s = 1 + Math.sin(t2 + i * 0.5) * 0.25;
           sv.ring.scale.set(s, s, 1);
           (sv.ring.material as MeshBasicMaterial).opacity = 0.25 + Math.sin(t2 + i * 0.5) * 0.15;
-          sv.pillar.rotation.y += 0.008;
+          // Subtle LED pulse — "live" feel without distracting
+          const led = sv.led.material as MeshStandardMaterial;
+          led.emissiveIntensity = 0.7 + Math.sin(t2 * 1.6 + i * 0.7) * 0.25;
         }
         for (let i = 0; i < priorityVis.length; i++) {
           const pv = priorityVis[i];
@@ -865,13 +913,13 @@ export default function CityScene({
       buildingGeo.dispose();
       buildingInstances.forEach((b) => { b.dispose(); });
       buildingMaterials.forEach((m) => m.dispose());
-      pillarGeo.dispose(); sphereGeo.dispose(); ringGeo.dispose();
-      signPostGeo.dispose(); signPlateGeo.dispose();
+      padGeo.dispose(); stationBodyGeo.dispose(); screenGeo.dispose();
+      ledGeo.dispose(); ringGeo.dispose();
       beamGeo.dispose(); flagGeo.dispose();
       Object.values(stationMatCache).forEach((m) => {
-        m.pillar.dispose(); m.sphere.dispose(); m.ring.dispose();
+        m.screen.dispose(); m.led.dispose(); m.ring.dispose();
       });
-      signPostMat.dispose(); signPlateMat.dispose();
+      padMat.dispose(); bodyMatStation.dispose();
       beamMat.dispose(); flagMat.dispose();
       bodyGeo.dispose(); bodyMat.dispose();
       cabinGeo.dispose(); cabinMat.dispose();

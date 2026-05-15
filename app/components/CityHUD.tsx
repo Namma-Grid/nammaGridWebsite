@@ -167,10 +167,10 @@ export default function CityHUD({
         </div>
       </div>
 
-      {/* ── Battery ──────────────────────────────────────────────────────── */}
+      {/* ── Battery (top-right, stacked under the speedometer) ───────────── */}
       <div
-        className="absolute z-20 px-3 py-2.5 rounded-xl bg-white/95 backdrop-blur-xl border border-slate-200/70 w-[180px]"
-        style={{ right: 24, bottom: 110, boxShadow: '0 8px 24px -8px rgba(15,23,42,0.18)' }}
+        className="absolute z-20 px-3 py-2.5 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/70 w-[140px]"
+        style={{ right: 16, top: 130, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}
       >
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.14em]">Battery</span>
