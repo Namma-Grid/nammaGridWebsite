@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import LocationPicker from '@/app/components/LocationPicker';
-import { LOCATIONS, generateRoute } from '@/app/data/ev-routes';
+import { LOCATIONS, generateRoute, getRouteInsights } from '@/app/data/ev-routes';
 import type { LocationOption, EVRoute } from '@/app/lib/types';
 
 const EVRouteMap = dynamic(() => import('@/app/components/EVRouteMap'), {
@@ -66,6 +66,7 @@ export default function CitizenRoutesPage() {
   const totalEvs = route?.segments.reduce((sum, s) => sum + s.evCount, 0) ?? 0;
   const avgDensity = totalEvs > 200 ? 'high' : totalEvs > 80 ? 'medium' : 'low';
   const densityInfo = DENSITY_LABELS[avgDensity];
+  const insights = route ? getRouteInsights(route) : [];
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-14 sm:top-16">
@@ -181,6 +182,31 @@ export default function CitizenRoutesPage() {
               <p className="text-xs font-bold text-emerald-700 mb-1">⚡ Best Charging Stop on Route</p>
               <p className="text-sm font-bold text-emerald-800">{bestStation.name}</p>
               <p className="text-[11px] text-emerald-600">{bestStation.kw}kW fast charger · {bestStation.operator}</p>
+            </div>
+          )}
+
+          {insights.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-slate-200">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                On this route
+              </p>
+              <ul className="space-y-1.5">
+                {insights.map((ins) => (
+                  <li key={ins.id} className="flex items-start gap-2 text-[12px] leading-snug text-slate-700">
+                    <span
+                      aria-hidden
+                      className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${
+                        ins.severity === 'warning'
+                          ? 'bg-amber-500'
+                          : ins.severity === 'positive'
+                          ? 'bg-emerald-500'
+                          : 'bg-slate-400'
+                      }`}
+                    />
+                    <span>{ins.text}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

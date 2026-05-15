@@ -393,6 +393,54 @@ async function osrmRoute(
   };
 }
 
+// ─── Route-aware insights ────────────────────────────────────────────────────
+
+export type RouteInsightSeverity = 'info' | 'positive' | 'warning';
+
+export interface RouteInsight {
+  id: string;
+  text: string;
+  severity: RouteInsightSeverity;
+}
+
+const HIGH_DENSITY_CORRIDOR = new Set(['whitefield', 'ecity', 'marathahalli', 'orr']);
+const GOOD_CHARGER_RATIO = new Set(['koramangala', 'indiranagar']);
+
+export function getRouteInsights(route: EVRoute, now: Date = new Date()): RouteInsight[] {
+  const insights: RouteInsight[] = [];
+  const localityIds = new Set(route.hexesOnPath);
+  const hour = now.getHours();
+
+  if ([...HIGH_DENSITY_CORRIDOR].some((id) => localityIds.has(id))) {
+    insights.push({
+      id: 'high-density-corridor',
+      text:
+        hour >= 18 && hour <= 21
+          ? 'Route enters the Whitefield / E-City corridor during peak hours — expect longer station waits.'
+          : 'Route enters the Whitefield / E-City corridor — Bengaluru’s highest EV density area, busiest 6–9 PM.',
+      severity: 'warning',
+    });
+  }
+
+  if ([...GOOD_CHARGER_RATIO].some((id) => localityIds.has(id))) {
+    insights.push({
+      id: 'good-charger-ratio',
+      text: 'Route passes through Koramangala / Indiranagar — among the best charger-to-EV ratios in central Bengaluru.',
+      severity: 'positive',
+    });
+  }
+
+  if (hour >= 17) {
+    insights.push({
+      id: 'evening-availability',
+      text: 'Real-time station availability is most accurate when you plan before 5 PM.',
+      severity: 'info',
+    });
+  }
+
+  return insights;
+}
+
 // ─── Public route generator ───────────────────────────────────────────────────
 
 export async function generateRoute(
