@@ -56,6 +56,57 @@ const LEVEL_STYLES: Record<LoadLevel, { bg: string; text: string; label: string 
 
 const REC_COLORS: Record<string, string> = { CHARGE: '#10b981', PARTIAL: '#f59e0b', AVOID: '#ef4444' };
 
+const ZONE_WINDOWS: Record<string, string> = {
+  residential: '11 PM – 6 AM', workplace: '6 PM – 8 AM', marketplace: '9 PM – 10 AM',
+};
+
+function scheduleDummy(area: string, zone: string): string {
+  const window = ZONE_WINDOWS[zone] ?? '11 PM – 6 AM';
+  return `## Optimal EV Charging Schedule — ${area} (${zone})
+
+| Window | Grid Load | Tariff | Recommendation |
+|--------|-----------|--------|---------------|
+| **${window}** | 🟢 Low | ₹3.8/kWh | ✅ Charge now |
+| 10 AM – 2 PM | 🟡 Moderate | ₹4.9/kWh | ⚡ Partial OK |
+| 6 PM – 9 PM | 🔴 Peak | ₹6.8/kWh | 🚫 Avoid |
+
+**Best window:** ${window} · **Saving:** ₹205 per session vs peak
+**Grid feeder stress** drops 38% when >50% of EVs use the off-peak window.
+`;
+}
+
+function loadShiftDummy(area: string, zone: string): string {
+  return `## Load Shift Impact — ${area} (${zone})
+
+| Metric | Before | After 60% shift | Change |
+|--------|--------|----------------|--------|
+| Peak grid load | 847 MW | 521 MW | **−38%** |
+| Feeder stress | 91% | 56% | **−35 pp** |
+| Avg charging cost | ₹6.1/kWh | ₹3.8/kWh | **−38%** |
+| Monthly saving / EV | — | **₹1,840** | +₹1,840 |
+| Tripping risk | 4.2/month | 0.8/month | **−81%** |
+`;
+}
+
+const DUMMY_OFF_PEAK_OP = `## Off-Peak Charging Benefits
+
+- **Off-peak rate (10 PM – 6 AM):** ₹3.8/kWh vs ₹6.8/kWh peak → **44% cheaper**
+- **Monthly saving (300 kWh):** ₹900 · **(500 kWh):** ₹1,500
+- **Grid congestion reduction:** 34% when 60% of EVs shift off-peak
+- **CO₂ saved:** ~0.21 kg per kWh (cleaner grid mix at night)
+
+BESCOM's ToU tariff applies automatically — no sign-up needed.
+`;
+
+const DUMMY_SMART_TIPS_OP = `## 5 Smart Charging Tips for Bangalore EV Owners
+
+1. **Schedule overnight (10 PM – 6 AM)** — saves ₹900–₹1,500/month via ToU tariff
+2. **Avoid 6–9 PM** — peak hits 91% utilisation; queues average 17 min + premium rate
+3. **Pre-condition while plugged in** — cabin cooling at off-peak cost, +8–12% range
+4. **Check NammaGrid before leaving** — Whitefield/Electronic City frequently hit 85%+ evenings
+5. **Charge to 80% on weekdays** — 38% less time, lower feeder stress, better battery longevity
+`;
+
 function WhatIfSimulator() {
   const [adoption, setAdoption] = useState(30);
   const baseLoad = 847;
@@ -128,6 +179,8 @@ export default function OperatorSchedulePage() {
 
   const scheduleQuery = useMemo(() => `Recommend the optimal EV charging schedule for ${area} (${zone} zone) tonight. Include best charging hours, hours to avoid, expected grid load, and tips.`, [area, zone]);
   const loadShiftQuery = useMemo(() => `If 60% of EV owners in ${area} (${zone} zone) shift charging to off-peak windows, what is the estimated peak grid load impact? Give numbers.`, [area, zone]);
+  const scheduleDummyContent = useMemo(() => scheduleDummy(area, zone), [area, zone]);
+  const loadShiftDummyContent = useMemo(() => loadShiftDummy(area, zone), [area, zone]);
 
   return (
     <div className="page-container">
@@ -244,10 +297,10 @@ export default function OperatorSchedulePage() {
             {/* AI insights in 2-col grid */}
             <div className="mb-1 text-xs uppercase tracking-wider text-slate-400 font-semibold">AI Insights</div>
             <div className="grid gap-2 sm:grid-cols-2">
-              <AgentPanel title={`AI Schedule — ${area}`} icon="🤖" query={scheduleQuery} badge="BESCOM Agent" minHeight="180px" maxHeight="340px" />
-              <AgentPanel title="Load Shift Impact" icon="📉" query={loadShiftQuery} minHeight="180px" maxHeight="340px" />
-              <AgentPanel title="Off-Peak Benefits" icon="💰" query="What are the financial and grid benefits for EV owners charging during BESCOM off-peak hours (10 PM - 6 AM)? Give specific numbers." minHeight="160px" maxHeight="300px" />
-              <AgentPanel title="Smart Charging Tips" icon="📱" query="Give 5 actionable smart charging tips for EV owners in Bangalore to reduce grid impact and save money." minHeight="160px" maxHeight="300px" />
+              <AgentPanel title={`AI Schedule — ${area}`} icon="🤖" query={scheduleQuery} badge="BESCOM Agent" minHeight="180px" maxHeight="340px" dummyContent={scheduleDummyContent} />
+              <AgentPanel title="Load Shift Impact" icon="📉" query={loadShiftQuery} minHeight="180px" maxHeight="340px" dummyContent={loadShiftDummyContent} />
+              <AgentPanel title="Off-Peak Benefits" icon="💰" query="What are the financial and grid benefits for EV owners charging during BESCOM off-peak hours (10 PM - 6 AM)? Give specific numbers." minHeight="160px" maxHeight="300px" dummyContent={DUMMY_OFF_PEAK_OP} />
+              <AgentPanel title="Smart Charging Tips" icon="📱" query="Give 5 actionable smart charging tips for EV owners in Bangalore to reduce grid impact and save money." minHeight="160px" maxHeight="300px" dummyContent={DUMMY_SMART_TIPS_OP} />
             </div>
           </div>
         </div>

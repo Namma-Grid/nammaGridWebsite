@@ -14,6 +14,8 @@ interface Props {
   autoFetch?: boolean;
   minHeight?: string;
   maxHeight?: string;
+  /** Show this content by default; agent only called when user clicks refresh */
+  dummyContent?: string;
 }
 
 export default function AgentPanel({
@@ -25,33 +27,38 @@ export default function AgentPanel({
   autoFetch,
   minHeight = '160px',
   maxHeight = '400px',
+  dummyContent,
 }: Props) {
   const initialOpen = defaultOpen ?? autoFetch ?? false;
   const [open, setOpen] = useState(initialOpen);
-  const [reply, setReply] = useState('');
+  const [reply, setReply] = useState(dummyContent ?? '');
   const [loading, setLoading] = useState(false);
-  const [fetched, setFetched] = useState(false);
+  const [fetched, setFetched] = useState(!!dummyContent);
+  const [isLive, setIsLive] = useState(false);
   const [cached, setCached] = useState(false);
   const queryRef = useRef(query);
 
   function fetchData(q: string, bust = false) {
     setLoading(true);
-    if (bust) setReply('');
     queryAgent(q, bust)
       .then((r) => {
         setReply(r);
         setFetched(true);
+        setIsLive(true);
         setCached(hasAgentCache(q));
       })
       .catch(() => {
-        setReply('Failed to reach BESCOM agent. Check connection and retry.');
+        if (!dummyContent && !isLive) {
+          setReply('Failed to reach BESCOM agent. Check connection and retry.');
+        }
       })
       .finally(() => setLoading(false));
   }
 
   useEffect(() => {
     queryRef.current = query;
-    if (open && fetched) fetchData(query);
+    if (open && isLive) fetchData(query);
+    else if (!isLive && dummyContent) setReply(dummyContent);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
@@ -61,6 +68,7 @@ export default function AgentPanel({
   }, [open]);
 
   const preCached = !fetched && hasAgentCache(query);
+  const showSample = !!dummyContent && !isLive;
 
   return (
     <div className="glass-card-static overflow-hidden">
@@ -73,7 +81,7 @@ export default function AgentPanel({
         <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2 flex-wrap flex-1 min-w-0">
           <span className="truncate">{title}</span>
           {badge && <span className="badge badge-blue">{badge}</span>}
-          {(cached || preCached) && !loading && (
+          {(cached || preCached) && !loading && isLive && (
             <span className="text-[10px] text-emerald-600 font-medium ml-1">cached</span>
           )}
         </h3>
@@ -115,11 +123,11 @@ export default function AgentPanel({
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
               </svg>
-              Refresh
+              {showSample ? 'Get AI Analysis' : 'Refresh'}
             </button>
           </div>
           <div className="overflow-y-auto" style={{ minHeight, maxHeight }}>
-            {loading ? (
+            {loading && !reply ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 py-10">
                 <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                 <span className="text-slate-400 text-xs">Agent analysing…</span>

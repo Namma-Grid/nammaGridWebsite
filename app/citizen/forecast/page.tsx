@@ -16,6 +16,19 @@ const ZONES = [
   'Marathahalli', 'Electronic City', 'Hebbal', 'Yeshwanthpur', 'Bannerghatta Road',
 ];
 
+const DUMMY_TIPS: Record<string, string> = {
+  'Koramangala': '💡 Best time to charge in Koramangala: **11 PM – 2 AM**. Off-peak tariff saves you ₹45 per session. Avoid 6–9 PM when 78% of stations show high wait times.',
+  'Whitefield': '💡 Whitefield sweet spot: **5–7 AM** — minimal queues and off-peak rates. Evening peak (5–8 PM) adds 15+ min wait and costs ₹38 more. Pre-charge overnight where possible.',
+  'Indiranagar': '💡 In Indiranagar, charge between **10 PM – 12 AM** for the lowest rates. Avoid 7–9 PM rush — station utilisation hits 91% during that window, expect a 12 min wait.',
+  'Jayanagar': '💡 Jayanagar off-peak window: **Midnight – 5 AM**. You can save up to ₹52 vs peak-hour charging. Morning commuters should pre-charge the night before.',
+  'HSR Layout': '💡 HSR Layout best window: **11 PM – 1 AM**. Grid demand drops 60% after 10 PM, cutting your cost by ₹40. Avoid Tuesday and Thursday evenings (tech-park peak).',
+  'Marathahalli': '💡 Marathahalli tip: charge **Saturday mornings 6–8 AM** for cheapest rates (₹3.8/kWh vs ₹6.1 peak). Weekday evenings 5–8 PM are extremely congested — avoid if possible.',
+  'Electronic City': '💡 Electronic City shift workers: **2–4 AM** is nearly always off-peak — ₹35–50 savings per session. Phase 1 stations have shorter queues than Phase 2 during shift changeover.',
+  'Hebbal': '💡 Hebbal tip: **Sunday 7–9 AM** offers the cheapest and least congested window. Airport-bound EVs create a midday spike — avoid 11 AM–1 PM on weekdays.',
+  'Yeshwanthpur': '💡 Yeshwanthpur sweet spot: **10 PM – Midnight**. Railway station traffic clears by 9:30 PM, freeing 40% of station capacity. Save ₹38 vs evening peak.',
+  'Bannerghatta Road': '💡 Bannerghatta Road tip: charge on **weekday mornings 6–8 AM**. Zoo and park traffic spikes on weekends — avoid Saturday 10 AM – 4 PM for shorter waits and lower cost.',
+};
+
 function DemandMeter({ level }: { level: 'Low' | 'Medium' | 'High' }) {
   const config = {
     Low: { color: 'text-emerald-600', ring: 'border-emerald-400', fill: 'bg-emerald-500', pct: '30%', icon: '✅', msg: 'Great time to charge!' },
@@ -61,8 +74,9 @@ export default function CitizenForecastPage() {
   const [rows, setRows] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [fromFallback, setFromFallback] = useState(false);
-  const [tip, setTip] = useState('');
+  const [tip, setTip] = useState(DUMMY_TIPS['Koramangala']);
   const [tipLoading, setTipLoading] = useState(false);
+  const [isTipLive, setIsTipLive] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -70,18 +84,21 @@ export default function CitizenForecastPage() {
       .then((d) => { setRows(d); setFromFallback(false); })
       .catch(() => { setRows(MOCK_FORECAST); setFromFallback(true); })
       .finally(() => setLoading(false));
+    // Reset tip to zone-specific dummy when zone changes
+    setTip(DUMMY_TIPS[zone] ?? `💡 Best time to charge in ${zone}: 11 PM – 2 AM. Avoid evening peak (6–9 PM) to save ₹40+ per session.`);
+    setIsTipLive(false);
   }, [zone]);
 
-  useEffect(() => {
-    if (!zone) return;
+  function refreshTip() {
+    if (tipLoading) return;
     setTipLoading(true);
     queryAgent(
       `In 2-3 sentences, give a simple charging tip for an EV owner in ${zone} today. Include the best time window and estimated cost savings. Use friendly language, no jargon.`
     )
-      .then(setTip)
-      .catch(() => setTip(`💡 Best time to charge in ${zone} today: 11 PM – 2 AM. You could save ₹45 on your session by avoiding the evening peak.`))
+      .then((t) => { setTip(t); setIsTipLive(true); })
+      .catch(() => { /* keep existing tip on error */ })
       .finally(() => setTipLoading(false));
-  }, [zone]);
+  }
 
   const currentHour = new Date().getHours();
   const currentDemand = rows[currentHour]?.utilization_pct ?? rows[currentHour]?.predicted_total_mw ?? 50;
@@ -154,20 +171,25 @@ export default function CitizenForecastPage() {
 
       {/* Smart charging tip */}
       <div className="glass-card-static p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">💡</span>
-          <h3 className="text-base font-bold text-slate-800">Smart Charging Tip for {zone}</h3>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">💡</span>
+            <h3 className="text-base font-bold text-slate-800">Smart Charging Tip for {zone}</h3>
+          </div>
+          <button
+            onClick={refreshTip}
+            disabled={tipLoading}
+            className="text-[11px] text-slate-400 hover:text-emerald-600 transition-colors flex items-center gap-1 disabled:opacity-50 shrink-0"
+          >
+            <svg className={`w-3 h-3 ${tipLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {isTipLive ? 'Refresh' : 'Get AI Tip'}
+          </button>
         </div>
-        {tipLoading ? (
-          <div className="space-y-2 animate-pulse">
-            <div className="h-3 bg-slate-100 rounded-full w-full" />
-            <div className="h-3 bg-slate-100 rounded-full w-4/5" />
-          </div>
-        ) : (
-          <div className="text-sm text-slate-600 leading-relaxed">
-            <MarkdownView content={tip} />
-          </div>
-        )}
+        <div className="text-sm text-slate-600 leading-relaxed">
+          <MarkdownView content={tip} />
+        </div>
       </div>
     </div>
   );

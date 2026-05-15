@@ -10,6 +10,121 @@ import {
 import { fetchSchedule, type ScheduleResult } from '@/app/lib/bescom-api';
 
 const ZONES = ['residential', 'workplace', 'marketplace'] as const;
+
+const ZONE_WINDOWS: Record<string, string> = {
+  residential: '11 PM – 6 AM',
+  workplace: '6 PM – 8 AM',
+  marketplace: '9 PM – 10 AM',
+};
+
+function scheduleDummy(area: string, zone: string): string {
+  const window = ZONE_WINDOWS[zone] ?? '11 PM – 6 AM';
+  return `## Optimal EV Charging Schedule — ${area} (${zone})
+
+### Best Charging Windows
+| Window | Grid Load | Tariff | Recommendation |
+|--------|-----------|--------|---------------|
+| **${window}** | 🟢 Low | ₹3.8/kWh | ✅ Charge now |
+| 10 AM – 2 PM | 🟡 Moderate | ₹4.9/kWh | ⚡ Partial OK |
+| 6 PM – 9 PM | 🔴 Peak | ₹6.8/kWh | 🚫 Avoid |
+
+### Hours to Avoid
+- **6–9 PM:** Peak demand — station queues 15+ min, premium tariff
+- **8–10 AM:** Morning surge — 74% utilisation in ${zone} zones
+
+### Cost Summary
+- Charging during recommended window: **₹285 / full charge**
+- Charging during peak: **₹490 / full charge**
+- **Potential saving: ₹205 per session**
+
+### Zone-Specific Tips for ${area}
+- Most ${zone} EVs in this area charge unscheduled — shifting saves ₹2,400/year
+- Grid feeder stress drops 38% when >50% of EVs use the off-peak window
+`;
+}
+
+function loadShiftDummy(area: string, zone: string): string {
+  return `## Load Shift Impact — ${area} (${zone})
+
+### If 60% of EV owners shift to off-peak charging:
+
+| Metric | Before Shift | After Shift | Change |
+|--------|-------------|-------------|--------|
+| Peak grid load | 847 MW | 521 MW | **−38%** |
+| Feeder stress | 91% utilisation | 56% utilisation | **−35 pp** |
+| Avg charging cost | ₹6.1/kWh | ₹3.8/kWh | **−38%** |
+| Carbon intensity | 0.82 kg CO₂/kWh | 0.61 kg CO₂/kWh | **−26%** |
+| Monthly saving / EV | — | **₹1,840** | +₹1,840 |
+
+### Feeder-Level Impact for ${area}
+- Peak demand reduced by **~326 MW** on the local 66kV feeder
+- Risk of tripping events drops from 4.2/month → 0.8/month
+- Enables 280 additional EVs on the same substation without upgrades
+`;
+}
+
+const DUMMY_OFF_PEAK = `## Off-Peak Charging Benefits in Bangalore
+
+### Tariff Savings
+- **Off-peak rate (10 PM – 6 AM):** ₹3.8/kWh
+- **Peak rate (6 PM – 10 PM):** ₹6.8/kWh
+- **Saving per kWh:** ₹3.00 (44% cheaper)
+
+### Monthly Savings for Average EV Owner
+| Usage | Peak cost | Off-peak cost | Monthly saving |
+|-------|-----------|---------------|---------------|
+| 300 kWh/month | ₹2,040 | ₹1,140 | **₹900** |
+| 500 kWh/month | ₹3,400 | ₹1,900 | **₹1,500** |
+
+### Grid Benefits
+- **Peak congestion reduction:** 34% when 60% EVs shift to off-peak
+- **Feeder overload incidents:** −71% with managed charging
+- **CO₂ saved:** ~0.21 kg per kWh (cleaner off-peak grid mix)
+
+### BESCOM Incentive
+BESCOM's ToU (Time-of-Use) tariff applies automatically — no sign-up required. Just schedule charging after 10 PM via your charger app or vehicle timer.
+`;
+
+const DUMMY_SMART_TIPS = `## 5 Smart Charging Tips for Bangalore EV Owners
+
+**1. Schedule overnight charging (10 PM – 6 AM)**
+Use your vehicle's built-in timer or charger app. Saves ₹900–₹1,500/month on electricity. Most home chargers support scheduled start/stop.
+
+**2. Avoid the 6–9 PM window**
+Evening peak hits 91% utilisation in residential zones. Public station queues average 17 minutes. Delaying by 4 hours eliminates both the queue and the premium tariff.
+
+**3. Pre-condition your battery before peak hours**
+Set climate control while still plugged in at off-peak rates. Driving range improves by 8–12% in Bangalore's heat — at zero extra charging cost.
+
+**4. Use BESCOM's real-time grid map before leaving home**
+Whitefield and Electronic City substations frequently hit 85%+ utilisation on weekday evenings. Check the NammaGrid status page and reroute to a station in a lower-demand zone.
+
+**5. Charge to 80% on weekdays, 100% on weekends**
+80% charge takes 38% less time and reduces feeder stress. Reserve full charges for weekends when grid load is 42% lower. Battery longevity also improves.
+`;
+
+const DUMMY_GRID_SCORE = `## EV Charging Grid Alignment Score
+
+### Overall Score: **62 / 100** 🟡
+
+| Dimension | Score | Status |
+|-----------|-------|--------|
+| Time-of-use alignment | 54/100 | 🟠 Needs work |
+| Peak avoidance | 48/100 | 🔴 Poor |
+| Station distribution | 71/100 | 🟡 Moderate |
+| Demand predictability | 78/100 | 🟢 Good |
+| Feeder headroom usage | 61/100 | 🟡 Moderate |
+
+### What's Working
+- Demand forecasting accuracy is high (78%) — BESCOM AI models are reliable
+- Station coverage in Koramangala, Whitefield, HSR Layout is reasonable
+
+### What Needs Improvement
+1. **Peak-hour charging (48/100):** 61% of public charging sessions still happen 6–9 PM — the worst window. ToU pricing alone hasn't shifted behaviour enough.
+2. **Time-of-use alignment (54/100):** Off-peak home charging is underutilised — only 34% of home chargers have scheduling enabled.
+3. **Underserved zone coverage:** Hebbal, Yeshwanthpur, Bannerghatta Road have <2 ports per 1,000 EVs, forcing cross-zone charging and increasing peak load.
+`;
+
 type Zone = typeof ZONES[number];
 
 const BESCOM_AREAS = [
@@ -328,6 +443,7 @@ export default function SchedulePage() {
             badge="BESCOM Agent"
             minHeight="240px"
             maxHeight="420px"
+            dummyContent={scheduleDummy(area, zone)}
           />
           <AgentPanel
             title="Load Shift Impact Analysis"
@@ -335,6 +451,7 @@ export default function SchedulePage() {
             query={loadShiftQuery}
             minHeight="240px"
             maxHeight="420px"
+            dummyContent={loadShiftDummy(area, zone)}
           />
           <AgentPanel
             title="Off-Peak Benefits"
@@ -342,6 +459,7 @@ export default function SchedulePage() {
             query="What are the financial and grid benefits for EV owners who charge during BESCOM off-peak hours (10 PM - 6 AM)? Give specific numbers: tariff savings per kWh, monthly savings for average EV, grid congestion reduction."
             minHeight="160px"
             maxHeight="320px"
+            dummyContent={DUMMY_OFF_PEAK}
           />
           <AgentPanel
             title="Smart Charging Tips"
@@ -349,6 +467,7 @@ export default function SchedulePage() {
             query="Give 5 actionable smart charging tips for EV owners in Bangalore to reduce grid impact and save money. Be specific and practical."
             minHeight="160px"
             maxHeight="320px"
+            dummyContent={DUMMY_SMART_TIPS}
           />
           <AgentPanel
             title="Grid Alignment Score"
@@ -356,6 +475,7 @@ export default function SchedulePage() {
             query="Rate the current EV charging behavior alignment with BESCOM grid capacity in Bangalore. Give a score out of 100, explain what's good, what's bad, and the top 3 improvements needed."
             minHeight="160px"
             maxHeight="320px"
+            dummyContent={DUMMY_GRID_SCORE}
           />
         </div>
       </SectionWrapper>

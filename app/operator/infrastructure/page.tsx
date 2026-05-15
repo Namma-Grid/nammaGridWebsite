@@ -15,6 +15,90 @@ import {
 import { MOCK_RECOMMENDATIONS, MOCK_UNDERSERVED } from '@/app/lib/mock-data';
 
 const TABS = ['Priority Map', 'Underserved Zones', 'AI Insights'] as const;
+
+const AGENT_DUMMY: Record<string, string> = {
+  'Priority Zones — Urgent Need': `## Top 8 Priority Zones — Urgent EV Charging Need
+
+| Rank | Zone | Peak Demand | Grid Stress | Chargers (have/need) | Priority |
+|------|------|------------|-------------|----------------------|----------|
+| #1 | Whitefield | 847 kWh | 🔴 Critical | 12 / 45 | 9.8/10 |
+| #2 | Electronic City | 712 kWh | 🔴 High | 8 / 38 | 9.2/10 |
+| #3 | HSR Layout | 634 kWh | 🟠 High | 14 / 32 | 8.7/10 |
+| #4 | Marathahalli | 589 kWh | 🟠 High | 10 / 28 | 8.1/10 |
+| #5 | Koramangala | 521 kWh | 🟠 Medium | 18 / 24 | 7.6/10 |
+| #6 | Indiranagar | 478 kWh | 🟡 Medium | 21 / 20 | 7.1/10 |
+| #7 | Hebbal | 412 kWh | 🟡 Medium | 9 / 18 | 6.8/10 |
+| #8 | Bannerghatta Rd | 387 kWh | 🟡 Medium | 7 / 16 | 6.3/10 |
+`,
+
+  'High-Growth EV Corridors': `## Top 5 High-Growth EV Corridors
+
+**1. Whitefield–ITPL** 🚨 EV density: 142/km² · Growth: +67% YoY · Gap: 33 ports
+**2. Electronic City** EV density: 118/km² · Growth: +54% YoY · Gap: 27 ports
+**3. Sarjapur–Marathahalli ORR** EV density: 96/km² · Growth: +48% YoY · Gap: 22 ports
+**4. Koramangala–HSR** EV density: 87/km² · Growth: +41% YoY · Gap: 18 ports
+**5. Hebbal–Thanisandra NH** EV density: 71/km² · Growth: +35% YoY · Gap: 14 ports
+`,
+
+  'Baseline vs AI Placement': `## AI-Optimized vs Uniform Grid Placement
+
+| Metric | Baseline | AI-Optimized | Δ |
+|--------|----------|--------------|---|
+| Demand Coverage | 61% | 89% | **+28%** |
+| Peak Load Reduction | 8% | 31% | **+23%** |
+| Avg Wait Time | 18 min | 7 min | **−61%** |
+| Cost per kWh | ₹4.20 | ₹2.85 | **−32%** |
+| Underserved zones fixed | 3/19 | 16/19 | **+433%** |
+`,
+
+  'Grid Capacity & Load Constraints': `## BESCOM Grid Capacity — EV Expansion Headroom
+
+**Safe zones:** Whitefield 220kV (+340 chargers) · Marathahalli 110kV (+180) · HSR 66kV (+120)
+**At risk ⚠️:** Electronic City Phase 1 (4 MW left, max +28) · Koramangala 66kV (2.1 MW, max +35)
+**Needs upgrade:** Indiranagar 33kV — near capacity before any new installs
+`,
+
+  'Demand Growth Projection': `## EV Demand Growth 2025–2027
+
+| Period | Total kWh/day | Growth |
+|--------|--------------|--------|
+| Q1 2025 | 26,300 | baseline |
+| Q4 2025 | 42,900 | +63% |
+| Q1 2026 | 50,900 | +94% |
+| Q4 2027 | 106,000 | +303% |
+
+Investment needed: ₹98 Cr · 1,360 new ports across residential, workplace, marketplace zones.
+`,
+
+  'Evaluation vs Baseline': `## AI Plan vs Uniform Baseline — Scores
+
+| Metric | AI Plan | Baseline |
+|--------|---------|----------|
+| Demand Coverage | 8.7/10 | 5.2/10 |
+| Peak Load Impact | 8.1/10 | 4.8/10 |
+| Grid Stress | 7.9/10 | 3.1/10 |
+| Cost Efficiency | 8.4/10 | 5.6/10 |
+| Equity | 7.2/10 | 2.9/10 |
+| **Overall** | **8.1/10** | **4.3/10** |
+`,
+
+  'Key Risks & Mitigation': `## Top 5 Rollout Risks
+
+1. 🔴 **Grid overload at peak** — Deploy demand-response; limit DC fast chargers to substations with >40 MW headroom
+2. 🟠 **Adoption below forecast** — Phase deployment; pause Phase 2 if Q2 2025 adoption <18% target
+3. 🟠 **Incomplete BESCOM data** — Data SLA; fall back to historical models when data >15 min stale
+4. 🟡 **Land allocation delays** — Pre-identify 40% more sites than needed; BBMP fast-track pipeline
+5. 🟡 **Hardware failure in underserved zones** — Ruggedised spec; 72-hr SLA; community ownership pilot
+`,
+
+  'Implementation Roadmap': `## 3-Phase Rollout Plan
+
+**Phase 1 (0–6 months):** 120 chargers across top 8 zones · Milestone: 60% of Bangalore within 2 km of a charger
+**Phase 2 (6–18 months):** +280 chargers on ORR/NH-44 · 3 substation upgrades · Avg wait <8 min city-wide
+**Phase 3 (18–36 months):** +400 chargers + V2G at 20 hubs · 95% EV demand met within 5 km
+`,
+};
+
 type Tab = typeof TABS[number];
 
 const PRIORITY_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
@@ -198,7 +282,7 @@ export default function OperatorInfraPage() {
                 { title: 'Key Risks & Mitigation', icon: '⚠️', query: 'What are the top 5 risks for EV charging infrastructure rollout in Bangalore? For each: category, severity, likelihood, and specific mitigation strategy.' },
                 { title: 'Implementation Roadmap', icon: '🗓️', query: 'Give a 3-phase implementation plan for EV charging infrastructure in Bangalore. Phase 1 (0-6 months), Phase 2 (6-18 months), Phase 3 (18-36 months).' },
               ].map((panel) => (
-                <AgentPanel key={panel.title} title={panel.title} icon={panel.icon} query={panel.query} badge={panel.badge} minHeight="200px" maxHeight="360px" />
+                <AgentPanel key={panel.title} title={panel.title} icon={panel.icon} query={panel.query} badge={panel.badge} minHeight="200px" maxHeight="360px" dummyContent={AGENT_DUMMY[panel.title]} />
               ))}
             </div>
           </div>

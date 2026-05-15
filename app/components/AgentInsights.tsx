@@ -1,8 +1,38 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { queryAgent } from '@/app/lib/agent';
 import MarkdownView from '@/app/components/MarkdownView';
+
+const DUMMY_FORECAST = `## EV Demand Forecast
+
+| Time Window | Demand Level | Est. Sessions | Avg Wait |
+|-------------|-------------|---------------|----------|
+| 00:00–05:00 | 🟢 Low | 8–12 / hr | < 3 min |
+| 05:00–08:00 | 🟡 Rising | 18–25 / hr | 5 min |
+| 08:00–10:00 | 🟠 Medium | 32–40 / hr | 8 min |
+| 10:00–17:00 | 🟡 Moderate | 22–30 / hr | 6 min |
+| **17:00–21:00** | **🔴 Peak** | **55–70 / hr** | **15+ min** |
+| 21:00–23:00 | 🟠 Declining | 28–35 / hr | 7 min |
+
+**Peak load tonight:** 78 kWh (6 PM – 8 PM)
+**Best charging window:** 11 PM – 2 AM (saves ₹42 vs peak)
+**Confidence:** 87% (90-day historical baseline)
+`;
+
+const DUMMY_TOP5 = `## Top 5 Demand Cells Tonight
+
+| Rank | Area | Zone | Peak kWh | Sessions |
+|------|------|------|---------|---------|
+| #1 | Whitefield ITPL Hub | Workplace | 142 kWh | 210 |
+| #2 | Koramangala 80 Feet Rd | Marketplace | 118 kWh | 178 |
+| #3 | HSR Layout 27th Main | Residential | 97 kWh | 145 |
+| #4 | Electronic City Ph-1 | Workplace | 89 kWh | 134 |
+| #5 | Marathahalli Bridge | Marketplace | 76 kWh | 112 |
+
+**Total tonight:** 522 kWh across top 5 cells · Peak window: 18:00–21:00
+**Zone split:** Workplace 44% · Marketplace 37% · Residential 19%
+`;
 
 interface Props {
   area: string;
@@ -12,52 +42,37 @@ interface Props {
 }
 
 export default function AgentInsights({ area, zone, dateOffset, hour }: Props) {
-  const [reply, setReply] = useState<string>('');
+  const [reply, setReply] = useState<string>(DUMMY_FORECAST);
   const [loading, setLoading] = useState(false);
+  const [isLiveForecast, setIsLiveForecast] = useState(false);
   const [error, setError] = useState<string>('');
-  const [top5, setTop5] = useState<string>('');
+  const [top5, setTop5] = useState<string>(DUMMY_TOP5);
   const [top5Loading, setTop5Loading] = useState(false);
+  const [isLiveTop5, setIsLiveTop5] = useState(false);
   const [activeTab, setActiveTab] = useState<'forecast' | 'top5'>('forecast');
   const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
+  function fetchForecast() {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
-
     setLoading(true);
     setError('');
-    setReply('');
-
     const timeLabel = `${hour.toString().padStart(2, '0')}:00`;
     const dateLabel = dateOffset === 0 ? 'today' : dateOffset === 1 ? 'tomorrow' : `in ${dateOffset} days`;
     const msg = `Predict EV charging demand for ${area} (${zone} zone) at ${timeLabel} ${dateLabel}. Give 24-hour forecast breakdown.`;
-
     queryAgent(msg)
-      .then((r) => {
-        setReply(r);
-        setLoading(false);
-      })
+      .then((r) => { setReply(r); setIsLiveForecast(true); setLoading(false); })
       .catch((e) => {
-        if (e.name !== 'AbortError') {
-          setError('Failed to fetch prediction from agent.');
-          setLoading(false);
-        }
+        if (e.name !== 'AbortError') { setError('Failed to fetch prediction from agent.'); setLoading(false); }
       });
-  }, [area, zone, dateOffset, hour]);
+  }
 
   function fetchTop5() {
     if (top5Loading) return;
     setTop5Loading(true);
-    setTop5('');
     queryAgent('Top 5 demand cells tonight with peak kWh and zone breakdown')
-      .then((r) => {
-        setTop5(r);
-        setTop5Loading(false);
-        setActiveTab('top5');
-      })
-      .catch(() => {
-        setTop5Loading(false);
-      });
+      .then((r) => { setTop5(r); setIsLiveTop5(true); setTop5Loading(false); setActiveTab('top5'); })
+      .catch(() => { setTop5Loading(false); });
   }
 
   return (
@@ -69,7 +84,7 @@ export default function AgentInsights({ area, zone, dateOffset, hour }: Props) {
           AI Agent Forecast
           <span className="badge badge-blue">BESCOM Agent</span>
         </h3>
-        <div className="flex gap-1">
+        <div className="flex gap-1 items-center">
           <button
             onClick={() => setActiveTab('forecast')}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
@@ -81,10 +96,7 @@ export default function AgentInsights({ area, zone, dateOffset, hour }: Props) {
             Forecast
           </button>
           <button
-            onClick={() => {
-              setActiveTab('top5');
-              if (!top5) fetchTop5();
-            }}
+            onClick={() => setActiveTab('top5')}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
               activeTab === 'top5'
                 ? 'bg-amber-500 text-white'
@@ -92,6 +104,17 @@ export default function AgentInsights({ area, zone, dateOffset, hour }: Props) {
             }`}
           >
             Top 5 Cells
+          </button>
+          <button
+            onClick={() => activeTab === 'forecast' ? fetchForecast() : fetchTop5()}
+            disabled={loading || top5Loading}
+            title="Get AI Analysis"
+            className="ml-1 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50 flex items-center gap-1 text-[11px]"
+          >
+            <svg className={`w-3.5 h-3.5 ${(loading || top5Loading) ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {(activeTab === 'forecast' && !isLiveForecast) || (activeTab === 'top5' && !isLiveTop5) ? 'Get AI Analysis' : 'Refresh'}
           </button>
         </div>
       </div>
@@ -114,7 +137,7 @@ export default function AgentInsights({ area, zone, dateOffset, hour }: Props) {
       {/* Content */}
       <div className="min-h-[220px] overflow-y-auto max-h-[360px]">
         {activeTab === 'forecast' ? (
-          loading ? (
+          loading && !reply ? (
             <div className="flex flex-col items-center justify-center h-40 gap-3">
               <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-slate-400 text-xs">Agent predicting demand…</span>
@@ -123,26 +146,16 @@ export default function AgentInsights({ area, zone, dateOffset, hour }: Props) {
             <div className="flex items-center justify-center h-40">
               <span className="text-red-400 text-xs">{error}</span>
             </div>
-          ) : reply ? (
+          ) : (
             <MarkdownView content={reply} />
-          ) : null
-        ) : top5Loading ? (
+          )
+        ) : top5Loading && !top5 ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3">
             <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-slate-400 text-xs">Agent fetching top demand cells…</span>
           </div>
-        ) : top5 ? (
-          <MarkdownView content={top5} />
         ) : (
-          <div className="flex flex-col items-center justify-center h-40 gap-3">
-            <button
-              onClick={fetchTop5}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              🔥 Fetch Top 5 Demand Cells
-            </button>
-            <span className="text-slate-400 text-xs">Live data from BESCOM agent</span>
-          </div>
+          <MarkdownView content={top5} />
         )}
       </div>
     </div>
