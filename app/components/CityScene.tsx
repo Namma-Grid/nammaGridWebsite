@@ -296,9 +296,13 @@ export default function CityScene({
     //   workplace   — slim footprint, tall (offices)
     //   marketplace — wide footprint, low (shops/sheds)
     type BuildingSpec = { x: number; z: number; w: number; d: number; h: number };
+    type RoofSpec = { x: number; z: number; y: number; w: number; d: number; h: number };
+    type AntennaSpec = { x: number; z: number; y: number; h: number };
     const zoneSpecs: Record<string, BuildingSpec[]> = {
       residential: [], workplace: [], marketplace: [],
     };
+    const roofCapSpecs: RoofSpec[] = [];
+    const antennaSpecs: AntennaSpec[] = [];
     const zoneList = ['residential', 'workplace', 'marketplace'] as const;
     type ZoneKey = (typeof zoneList)[number];
 
@@ -347,10 +351,47 @@ export default function CityScene({
                 az < ROAD_W * 0.7 || az > BLOCK - ROAD_W * 0.7) continue;
 
             zoneSpecs[zone].push({ x: ox, z: oz, w, d, h });
+
+            // Roof detail — only on workplaces, gated by height
+            if (zone === 'workplace') {
+              if (h > 22 && seeded(slotSeed + 11) > 0.25) {
+                const capW = w * (0.5 + seeded(slotSeed + 12) * 0.2);
+                const capD = d * (0.5 + seeded(slotSeed + 13) * 0.2);
+                const capH = 1.5 + seeded(slotSeed + 14) * 2.5;
+                roofCapSpecs.push({
+                  x: ox + (seeded(slotSeed + 15) - 0.5) * (w - capW) * 0.6,
+                  z: oz + (seeded(slotSeed + 16) - 0.5) * (d - capD) * 0.6,
+                  y: h + capH / 2,
+                  w: capW, d: capD, h: capH,
+                });
+              }
+              if (h > 36 && seeded(slotSeed + 17) > 0.45) {
+                antennaSpecs.push({
+                  x: ox + (seeded(slotSeed + 18) - 0.5) * w * 0.3,
+                  z: oz + (seeded(slotSeed + 19) - 0.5) * d * 0.3,
+                  y: h + 2 + seeded(slotSeed + 20) * 1,
+                  h: 3 + seeded(slotSeed + 21) * 4,
+                });
+              }
+            }
           }
         }
       }
     }
+
+    // ── Per-block building index for AABB collision + tree placement ─────
+    type BuildingHit = { x: number; z: number; hw: number; hd: number };
+    const buildingIndex = new Map<string, BuildingHit[]>();
+    const blockKey = (x: number, z: number) =>
+      `${Math.round(x / BLOCK)},${Math.round(z / BLOCK)}`;
+    zoneList.forEach((zone) => {
+      zoneSpecs[zone].forEach((s) => {
+        const k = blockKey(s.x, s.z);
+        let bucket = buildingIndex.get(k);
+        if (!bucket) { bucket = []; buildingIndex.set(k, bucket); }
+        bucket.push({ x: s.x, z: s.z, hw: s.w / 2, hd: s.d / 2 });
+      });
+    });
 
     const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
     const dummy = new THREE.Object3D();
@@ -401,6 +442,131 @@ export default function CityScene({
       buildingInstances.push(inst);
     });
 
+    // ── Rooftop caps (HVAC / equipment) ───────────────────────────────────
+    const roofCapMat = new THREE.MeshStandardMaterial({
+      color: 0x475569, roughness: 0.55, metalness: 0.2,
+    });
+    const roofCapMesh = new THREE.InstancedMesh(
+      buildingGeo, roofCapMat, Math.max(1, roofCapSpecs.length),
+    );
+    roofCapMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    roofCapMesh.castShadow = true;
+    roofCapSpecs.forEach((r, i) => {
+      dummy.position.set(r.x, r.y, r.z);
+      dummy.scale.set(r.w, r.h, r.d);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      roofCapMesh.setMatrixAt(i, dummy.matrix);
+    });
+    roofCapMesh.count = roofCapSpecs.length;
+    roofCapMesh.instanceMatrix.needsUpdate = true;
+    if (roofCapSpecs.length > 0) scene.add(roofCapMesh);
+
+    // ── Antennas / spires on the tallest towers ──────────────────────────
+    const antennaGeo = new THREE.BoxGeometry(0.35, 1, 0.35);
+    const antennaMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8, roughness: 0.4, metalness: 0.5,
+    });
+    const antennaMesh = new THREE.InstancedMesh(
+      antennaGeo, antennaMat, Math.max(1, antennaSpecs.length),
+    );
+    antennaMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    antennaMesh.castShadow = true;
+    antennaSpecs.forEach((a, i) => {
+      dummy.position.set(a.x, a.y, a.z);
+      dummy.scale.set(1, a.h, 1);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      antennaMesh.setMatrixAt(i, dummy.matrix);
+    });
+    antennaMesh.count = antennaSpecs.length;
+    antennaMesh.instanceMatrix.needsUpdate = true;
+    if (antennaSpecs.length > 0) scene.add(antennaMesh);
+
+    // ── Trees (instanced trunks + canopies) ──────────────────────────────
+    const TREE_TARGET = 140;
+    const treePositions: Array<{ x: number; z: number; scale: number; tint: number }> = [];
+    const treeCanopyTints = [0x2f7a3a, 0x3a8c45, 0x4ca053, 0x5fb168, 0x276b32];
+    for (let i = 0; i < TREE_TARGET * 4 && treePositions.length < TREE_TARGET; i++) {
+      const tx = (seeded(i * 13.7 + 0.11) - 0.5) * (WORLD_HALF * 2 - 40);
+      const tz = (seeded(i * 17.3 + 0.23) - 0.5) * (WORLD_HALF * 2 - 40);
+
+      // Keep player spawn area clear
+      if (tx * tx + tz * tz < 144) continue;
+
+      // Avoid road centerlines (give roads some breathing room)
+      const rx = ((tx + WORLD_HALF) % BLOCK);
+      const rz = ((tz + WORLD_HALF) % BLOCK);
+      if (rx < ROAD_W * 0.5 || rx > BLOCK - ROAD_W * 0.5 ||
+          rz < ROAD_W * 0.5 || rz > BLOCK - ROAD_W * 0.5) continue;
+
+      // Avoid building footprints (with 1.5u padding)
+      const bx0 = Math.round(tx / BLOCK);
+      const bz0 = Math.round(tz / BLOCK);
+      let blocked = false;
+      for (let ddx = -1; ddx <= 1 && !blocked; ddx++) {
+        for (let ddz = -1; ddz <= 1 && !blocked; ddz++) {
+          const bucket = buildingIndex.get(`${bx0 + ddx},${bz0 + ddz}`);
+          if (!bucket) continue;
+          for (const b of bucket) {
+            if (Math.abs(tx - b.x) < b.hw + 1.5 &&
+                Math.abs(tz - b.z) < b.hd + 1.5) {
+              blocked = true; break;
+            }
+          }
+        }
+      }
+      if (blocked) continue;
+
+      treePositions.push({
+        x: tx, z: tz,
+        scale: 0.75 + seeded(i * 41 + 0.7) * 0.6,
+        tint: treeCanopyTints[Math.floor(seeded(i * 53 + 0.9) * treeCanopyTints.length)],
+      });
+    }
+
+    const trunkGeo = new THREE.CylinderGeometry(0.28, 0.36, 2.4, 6);
+    const trunkMat = new THREE.MeshStandardMaterial({
+      color: 0x5b4636, roughness: 0.85,
+    });
+    const canopyGeo = new THREE.SphereGeometry(1.7, 8, 6);
+    const canopyMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff, roughness: 0.7, metalness: 0,
+    });
+
+    const trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, Math.max(1, treePositions.length));
+    const canopyMesh = new THREE.InstancedMesh(canopyGeo, canopyMat, Math.max(1, treePositions.length));
+    trunkMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    canopyMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    trunkMesh.castShadow = true;
+    canopyMesh.castShadow = true;
+
+    const treeColor = new THREE.Color();
+    treePositions.forEach((t, i) => {
+      // Trunk
+      dummy.position.set(t.x, (2.4 / 2) * t.scale, t.z);
+      dummy.scale.set(t.scale, t.scale, t.scale);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      trunkMesh.setMatrixAt(i, dummy.matrix);
+
+      // Canopy: oblate sphere, sat on top of the trunk
+      dummy.position.set(t.x, 2.4 * t.scale + 0.4, t.z);
+      dummy.scale.set(t.scale * 1.05, t.scale * 0.85, t.scale * 1.05);
+      dummy.updateMatrix();
+      canopyMesh.setMatrixAt(i, dummy.matrix);
+      canopyMesh.setColorAt(i, treeColor.setHex(t.tint));
+    });
+    trunkMesh.count = treePositions.length;
+    canopyMesh.count = treePositions.length;
+    trunkMesh.instanceMatrix.needsUpdate = true;
+    canopyMesh.instanceMatrix.needsUpdate = true;
+    if (canopyMesh.instanceColor) canopyMesh.instanceColor.needsUpdate = true;
+    if (treePositions.length > 0) {
+      scene.add(trunkMesh);
+      scene.add(canopyMesh);
+    }
+
     // ── Charging Stations — stylized EV pylon ────────────────────────────
     // Per station: a slim ground pad, a tall slate body, a status-lit screen
     // on the front face, and a small LED bar on top. Plus the existing
@@ -418,6 +584,24 @@ export default function CityScene({
     const screenGeo = new THREE.BoxGeometry(1.3, 1.6, 0.08);
     const ledGeo = new THREE.BoxGeometry(1.6, 0.25, 0.9);
     const ringGeo = new THREE.RingGeometry(4, 5.2, 24);
+
+    // Hanging cable + plug — a CatmullRom curve traced into a tube.
+    // Curve is in charger-local space (origin = charger base); cloned and
+    // translated per station via the mesh position.
+    const cableCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.85, 4.3, 0.2),   // exit point on the right side
+      new THREE.Vector3(1.55, 2.8, 0.55),  // mid-arc
+      new THREE.Vector3(1.65, 0.9, 0.7),   // approaching ground
+      new THREE.Vector3(2.05, 0.35, 0.7),  // plug resting on the pad
+    ]);
+    const cableGeo = new THREE.TubeGeometry(cableCurve, 18, 0.08, 6, false);
+    const cableMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a, roughness: 0.75, metalness: 0.1,
+    });
+    const plugGeo = new THREE.BoxGeometry(0.5, 0.32, 0.5);
+    const plugMat = new THREE.MeshStandardMaterial({
+      color: 0x1f2937, roughness: 0.4, metalness: 0.4,
+    });
 
     // Shared neutral chassis materials
     const padMat = new THREE.MeshStandardMaterial({
@@ -481,6 +665,19 @@ export default function CityScene({
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(wx, 0.1, wz);
       scene.add(ring);
+
+      // Hanging cable + plug — shared geometry, repositioned per station.
+      // Curve coordinates are local to the charger origin; setting the mesh
+      // position to (wx, 0, wz) plants the cable where it should be.
+      const cable = new THREE.Mesh(cableGeo, cableMat);
+      cable.position.set(wx, 0, wz);
+      cable.castShadow = true;
+      scene.add(cable);
+
+      const plug = new THREE.Mesh(plugGeo, plugMat);
+      plug.position.set(wx + 2.05, 0.35, wz + 0.7);
+      plug.castShadow = true;
+      scene.add(plug);
 
       stationVis.push({ station, wx, wz, ring, screen, led });
     });
@@ -746,6 +943,37 @@ export default function CityScene({
       }
       vehicle.x += Math.sin(vehicle.angle) * vehicle.speed * dtScale;
       vehicle.z += Math.cos(vehicle.angle) * vehicle.speed * dtScale;
+
+      // ── Collision: AABB push-out against nearby buildings ──────────────
+      // Approximate the car as a circle of radius CAR_RADIUS. Check the
+      // current block + 8 neighbors via the per-block building index. If
+      // we end up inside a footprint, push out along the shallower axis
+      // and damp the speed.
+      const CAR_RADIUS = 1.8;
+      const cbx = Math.round(vehicle.x / BLOCK);
+      const cbz = Math.round(vehicle.z / BLOCK);
+      for (let ddx = -1; ddx <= 1; ddx++) {
+        for (let ddz = -1; ddz <= 1; ddz++) {
+          const bucket = buildingIndex.get(`${cbx + ddx},${cbz + ddz}`);
+          if (!bucket) continue;
+          for (let bi = 0; bi < bucket.length; bi++) {
+            const b = bucket[bi];
+            const cdx = vehicle.x - b.x;
+            const cdz = vehicle.z - b.z;
+            const overlapX = (b.hw + CAR_RADIUS) - Math.abs(cdx);
+            const overlapZ = (b.hd + CAR_RADIUS) - Math.abs(cdz);
+            if (overlapX > 0 && overlapZ > 0) {
+              if (overlapX < overlapZ) {
+                vehicle.x += Math.sign(cdx || 1) * overlapX;
+              } else {
+                vehicle.z += Math.sign(cdz || 1) * overlapZ;
+              }
+              vehicle.speed *= 0.35;
+            }
+          }
+        }
+      }
+
       vehicle.x = Math.max(-WORLD_HALF + 30, Math.min(WORLD_HALF - 30, vehicle.x));
       vehicle.z = Math.max(-WORLD_HALF + 30, Math.min(WORLD_HALF - 30, vehicle.z));
 
@@ -915,12 +1143,18 @@ export default function CityScene({
       buildingMaterials.forEach((m) => m.dispose());
       padGeo.dispose(); stationBodyGeo.dispose(); screenGeo.dispose();
       ledGeo.dispose(); ringGeo.dispose();
+      cableGeo.dispose(); cableMat.dispose();
+      plugGeo.dispose(); plugMat.dispose();
       beamGeo.dispose(); flagGeo.dispose();
       Object.values(stationMatCache).forEach((m) => {
         m.screen.dispose(); m.led.dispose(); m.ring.dispose();
       });
       padMat.dispose(); bodyMatStation.dispose();
       beamMat.dispose(); flagMat.dispose();
+      roofCapMat.dispose(); roofCapMesh.dispose();
+      antennaGeo.dispose(); antennaMat.dispose(); antennaMesh.dispose();
+      trunkGeo.dispose(); trunkMat.dispose(); trunkMesh.dispose();
+      canopyGeo.dispose(); canopyMat.dispose(); canopyMesh.dispose();
       bodyGeo.dispose(); bodyMat.dispose();
       cabinGeo.dispose(); cabinMat.dispose();
       wheelGeo.dispose(); wheelMat.dispose();
