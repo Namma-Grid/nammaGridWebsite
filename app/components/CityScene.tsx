@@ -61,6 +61,9 @@ const STATUS_COLORS: Record<string, number> = {
 interface TickData {
   x: number; z: number; angle: number; speed: number;
   hour: number;
+  battery: number;
+  isCharging: boolean;
+  chargingStationId: string | null;
 }
 
 interface CitySceneProps {
@@ -196,7 +199,7 @@ export default function CityScene({
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // ── Renderer (no shadows for perf) ────────────────────────────────────
+    // ── Renderer (soft shadows enabled) ──────────────────────────────────
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
@@ -204,29 +207,52 @@ export default function CityScene({
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.shadowMap.enabled = false;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // ── Scene + fog ──────────────────────────────────────────────────────
-    // Locked to a clear sunny midday — matches the "always day" mode.
+    // ── Scene + sky + fog ────────────────────────────────────────────────
+    // Vertical gradient sky: warm haze at horizon → saturated blue at zenith.
     const scene = new THREE.Scene();
-    const skyColor = new THREE.Color(0x9bd1ff);
-    scene.background = skyColor;
-    const fog = new THREE.Fog(skyColor.getHex(), 300, 800);
+    const skyCanvas = document.createElement('canvas');
+    skyCanvas.width = 4; skyCanvas.height = 256;
+    const skyCtx = skyCanvas.getContext('2d')!;
+    const skyGrad = skyCtx.createLinearGradient(0, 0, 0, 256);
+    skyGrad.addColorStop(0.00, '#3d8fd6'); // zenith — saturated blue
+    skyGrad.addColorStop(0.55, '#9bd1ff'); // mid sky
+    skyGrad.addColorStop(0.95, '#f4e8d0'); // warm haze at horizon
+    skyGrad.addColorStop(1.00, '#fff4dc');
+    skyCtx.fillStyle = skyGrad;
+    skyCtx.fillRect(0, 0, 4, 256);
+    const skyTex = new THREE.CanvasTexture(skyCanvas);
+    skyTex.colorSpace = THREE.SRGBColorSpace;
+    scene.background = skyTex;
+    // Fog matches the horizon color so distant buildings blend into the haze.
+    const fog = new THREE.Fog(0xdbe5ec, 320, 850);
     scene.fog = fog;
 
     // ── Camera ───────────────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(58, width / height, 0.5, 1500);
     camera.position.set(0, 35, 50);
 
-    // ── Lights (no shadow) ───────────────────────────────────────────────
+    // ── Lights (sun casts soft shadows) ──────────────────────────────────
     const hemi = new THREE.HemisphereLight(0xffffff, 0x6b7280, 0.55);
     scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xfff4e6, 0.9);
     sun.position.set(120, 200, 80);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 700;
+    sun.shadow.camera.left = -WORLD_HALF;
+    sun.shadow.camera.right = WORLD_HALF;
+    sun.shadow.camera.top = WORLD_HALF;
+    sun.shadow.camera.bottom = -WORLD_HALF;
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.5;
     scene.add(sun);
 
     // ── Ground (1 mesh, baked roads + markings) ──────────────────────────
@@ -242,6 +268,7 @@ export default function CityScene({
     const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2, WORLD_HALF * 2);
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
     scene.add(ground);
 
     // ── Demand heatmap overlay ───────────────────────────────────────────
@@ -331,6 +358,8 @@ export default function CityScene({
       inst.count = specs.length;
       inst.instanceMatrix.needsUpdate = true;
       if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+      inst.castShadow = true;
+      inst.receiveShadow = true;
       scene.add(inst);
       buildingInstances.push(inst);
     });
@@ -449,6 +478,7 @@ export default function CityScene({
     });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.position.y = 1.5;
+    body.castShadow = true;
     carGroup.add(body);
 
     const cabinGeo = new THREE.BoxGeometry(2.6, 1.2, 3);
@@ -458,6 +488,7 @@ export default function CityScene({
     });
     const cabin = new THREE.Mesh(cabinGeo, cabinMat);
     cabin.position.set(0, 2.5, -0.3);
+    cabin.castShadow = true;
     carGroup.add(cabin);
 
     const wheelGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.4, 8);
@@ -494,17 +525,74 @@ export default function CityScene({
       carGroup.add(tl);
     });
 
-    // Fake car shadow (1 cheap dark plane below car instead of shadow map)
-    const carShadowGeo = new THREE.CircleGeometry(3.2, 16);
-    const carShadowMat = new THREE.MeshBasicMaterial({
-      color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false,
-    });
-    const carShadow = new THREE.Mesh(carShadowGeo, carShadowMat);
-    carShadow.rotation.x = -Math.PI / 2;
-    carShadow.position.y = 0.12;
-    carGroup.add(carShadow);
-
     scene.add(carGroup);
+
+    // ── NPC EV traffic (instanced) ───────────────────────────────────────
+    // Spawn N cars on the road grid. Each picks one of 4 cardinal directions,
+    // snaps to a road centerline, and drives in a straight line forever
+    // (wrapping at world bounds). Two instanced meshes share per-NPC matrices:
+    // a body box and a smaller cabin box. All NPCs are EVs — subtle palette.
+    const NPC_COUNT = 18;
+    const NPC_BODY_W = 2.2;
+    const NPC_BODY_H = 1.1;
+    const NPC_BODY_L = 4.4;
+    const NPC_PALETTE = [0xf8fafc, 0xdce3eb, 0x94a3b8, 0x3b82f6, 0x0ea5e9, 0x1e293b];
+
+    const npcBodyGeo = new THREE.BoxGeometry(NPC_BODY_W, NPC_BODY_H, NPC_BODY_L);
+    const npcBodyMat = new THREE.MeshStandardMaterial({
+      roughness: 0.35, metalness: 0.5,
+    });
+    const npcCabinGeo = new THREE.BoxGeometry(NPC_BODY_W - 0.5, NPC_BODY_H * 0.7, NPC_BODY_L * 0.55);
+    const npcCabinMat = new THREE.MeshStandardMaterial({
+      color: 0x93c5fd, roughness: 0.1, metalness: 0.3,
+      transparent: true, opacity: 0.7,
+    });
+
+    const npcBodyMesh = new THREE.InstancedMesh(npcBodyGeo, npcBodyMat, NPC_COUNT);
+    const npcCabinMesh = new THREE.InstancedMesh(npcCabinGeo, npcCabinMat, NPC_COUNT);
+    npcBodyMesh.castShadow = true;
+    npcCabinMesh.castShadow = true;
+    npcBodyMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    npcCabinMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(npcBodyMesh);
+    scene.add(npcCabinMesh);
+
+    type Npc = { x: number; z: number; dir: 0 | 1 | 2 | 3; speed: number };
+    const npcs: Npc[] = [];
+    const npcColor = new THREE.Color();
+    for (let i = 0; i < NPC_COUNT; i++) {
+      const dir = (Math.floor(seeded(i * 13 + 1) * 4) % 4) as 0 | 1 | 2 | 3;
+      // Snap perpendicular axis to a road centerline; small lane offset
+      const laneOffset = (seeded(i * 7 + 2) > 0.5 ? 2.5 : -2.5);
+      let nx = 0, nz = 0;
+      if (dir === 0 || dir === 2) {
+        // Horizontal motion → snap z to road
+        const roadIdx = Math.floor(seeded(i * 31 + 5) * (WORLD_HALF * 2 / BLOCK)) - WORLD_HALF / BLOCK;
+        nz = roadIdx * BLOCK + laneOffset;
+        nx = (seeded(i * 37 + 9) - 0.5) * (WORLD_HALF * 2 - 60);
+      } else {
+        // Vertical motion → snap x to road
+        const roadIdx = Math.floor(seeded(i * 31 + 5) * (WORLD_HALF * 2 / BLOCK)) - WORLD_HALF / BLOCK;
+        nx = roadIdx * BLOCK + laneOffset;
+        nz = (seeded(i * 37 + 9) - 0.5) * (WORLD_HALF * 2 - 60);
+      }
+      npcs.push({
+        x: nx, z: nz, dir,
+        speed: 0.45 + seeded(i * 41 + 13) * 0.35,
+      });
+      const colorHex = NPC_PALETTE[Math.floor(seeded(i * 53 + 17) * NPC_PALETTE.length)];
+      npcBodyMesh.setColorAt(i, npcColor.setHex(colorHex));
+    }
+    if (npcBodyMesh.instanceColor) npcBodyMesh.instanceColor.needsUpdate = true;
+
+    const npcDummy = new THREE.Object3D();
+    const NPC_DIR_VECTORS: [number, number, number][] = [
+      [1, 0, 0],   // +x east
+      [0, 0, -1],  // -z north
+      [-1, 0, 0],  // -x west
+      [0, 0, 1],   // +z south
+    ];
+    const NPC_DIR_ANGLES = [Math.PI / 2, 0, -Math.PI / 2, Math.PI];
 
     // ── Vehicle physics state ────────────────────────────────────────────
     const vehicle = {
@@ -515,7 +603,13 @@ export default function CityScene({
       braking: 0.05,
       friction: 0.012,
       turnSpeed: 0.038,
+      battery: 78, // %
     };
+    const BATTERY_DRAIN_PER_SEC = 0.55;   // at full speed
+    const BATTERY_CHARGE_PER_SEC = 6.5;   // when inside a station ring
+    const CHARGING_RADIUS = 6;
+    let isCharging = false;
+    let chargingStationId: string | null = null;
 
     // ── Input ─────────────────────────────────────────────────────────────
     const keys: Record<string, boolean> = {};
@@ -583,10 +677,14 @@ export default function CityScene({
       const right = keys['d'] || keys['arrowright'];
       const brake = keys[' '];
 
+      // Battery dead → no thrust, but still coasts.
+      const accelScale = vehicle.battery <= 0 ? 0 : vehicle.battery < 8 ? 0.35 : 1;
+      const effectiveMax = vehicle.battery <= 0 ? 0 : vehicle.battery < 8 ? vehicle.maxSpeed * 0.45 : vehicle.maxSpeed;
+
       if (forward) {
-        vehicle.speed = Math.min(vehicle.speed + vehicle.acceleration * dtScale, vehicle.maxSpeed);
+        vehicle.speed = Math.min(vehicle.speed + vehicle.acceleration * accelScale * dtScale, effectiveMax);
       } else if (backward) {
-        vehicle.speed = Math.max(vehicle.speed - vehicle.braking * dtScale, -vehicle.maxSpeed * 0.4);
+        vehicle.speed = Math.max(vehicle.speed - vehicle.braking * dtScale, -effectiveMax * 0.4);
       }
       if (brake) vehicle.speed *= Math.pow(0.92, dtScale);
       if (!forward && !backward) {
@@ -634,6 +732,54 @@ export default function CityScene({
       const nightGlow = (1 - dayFactor) * 0.45;
       for (let i = 0; i < buildingMaterials.length; i++) {
         buildingMaterials[i].emissiveIntensity = nightGlow;
+      }
+
+      // ── NPC EVs — advance, wrap, write instance matrices ─────────────
+      for (let i = 0; i < npcs.length; i++) {
+        const n = npcs[i];
+        const v = NPC_DIR_VECTORS[n.dir];
+        n.x += v[0] * n.speed * dtScale;
+        n.z += v[2] * n.speed * dtScale;
+        // Wrap when out of bounds
+        if (n.x > WORLD_HALF) n.x = -WORLD_HALF;
+        else if (n.x < -WORLD_HALF) n.x = WORLD_HALF;
+        if (n.z > WORLD_HALF) n.z = -WORLD_HALF;
+        else if (n.z < -WORLD_HALF) n.z = WORLD_HALF;
+
+        npcDummy.position.set(n.x, NPC_BODY_H / 2 + 0.1, n.z);
+        npcDummy.rotation.set(0, NPC_DIR_ANGLES[n.dir], 0);
+        npcDummy.updateMatrix();
+        npcBodyMesh.setMatrixAt(i, npcDummy.matrix);
+
+        npcDummy.position.y = NPC_BODY_H + 0.45;
+        npcDummy.updateMatrix();
+        npcCabinMesh.setMatrixAt(i, npcDummy.matrix);
+      }
+      npcBodyMesh.instanceMatrix.needsUpdate = true;
+      npcCabinMesh.instanceMatrix.needsUpdate = true;
+
+      // ── Battery drain / charge ───────────────────────────────────────
+      const speedMag = Math.abs(vehicle.speed);
+      if (speedMag > 0.02) {
+        const drain = BATTERY_DRAIN_PER_SEC * (speedMag / vehicle.maxSpeed) * dt;
+        vehicle.battery = Math.max(0, vehicle.battery - drain);
+      }
+      // Check proximity to any station — charge if within radius
+      isCharging = false;
+      chargingStationId = null;
+      if (vehicle.battery < 100) {
+        for (let i = 0; i < stationVis.length; i++) {
+          const sv = stationVis[i];
+          if (sv.station.status === 'offline') continue;
+          const dx = vehicle.x - sv.wx;
+          const dz = vehicle.z - sv.wz;
+          if (dx * dx + dz * dz < CHARGING_RADIUS * CHARGING_RADIUS) {
+            vehicle.battery = Math.min(100, vehicle.battery + BATTERY_CHARGE_PER_SEC * dt);
+            isCharging = true;
+            chargingStationId = sv.station.id;
+            break;
+          }
+        }
       }
 
       // ── Animate rings + flags every other frame ───────────────────────
@@ -697,6 +843,9 @@ export default function CityScene({
         onTickRef.current({
           x: vehicle.x, z: vehicle.z, angle: vehicle.angle,
           speed: displaySpeed, hour: hourInt,
+          battery: vehicle.battery,
+          isCharging,
+          chargingStationId,
         });
       }
 
@@ -728,9 +877,12 @@ export default function CityScene({
       cabinGeo.dispose(); cabinMat.dispose();
       wheelGeo.dispose(); wheelMat.dispose();
       headlightGeo.dispose(); headlightMat.dispose(); tailMat.dispose();
-      carShadowGeo.dispose(); carShadowMat.dispose();
+      npcBodyGeo.dispose(); npcBodyMat.dispose();
+      npcCabinGeo.dispose(); npcCabinMat.dispose();
+      npcBodyMesh.dispose(); npcCabinMesh.dispose();
       groundGeo.dispose(); groundMat.dispose();
       heatGeo.dispose(); heatMat.dispose();
+      skyTex.dispose();
       renderer.dispose();
       scene.clear();
       if (container.contains(renderer.domElement)) {

@@ -41,15 +41,20 @@ export default function ExplorePage() {
   const [vehicleAngle, setVehicleAngle] = useState(0);
   const [stationPositions, setStationPositions] = useState<PosTuple[]>([]);
   const [priorityPositions, setPriorityPositions] = useState<PosTuple[]>([]);
+  const [battery, setBattery] = useState(78);
+  const [isCharging, setIsCharging] = useState(false);
 
   const handleTick = useCallback((d: {
     x: number; z: number; angle: number; speed: number; hour: number;
+    battery: number; isCharging: boolean; chargingStationId: string | null;
   }) => {
     setVehicleX(d.x);
     setVehicleZ(d.z);
     setVehicleAngle(d.angle);
     setSpeed(d.speed);
     setHour((prev) => (prev === d.hour ? prev : d.hour));
+    setBattery(d.battery);
+    setIsCharging(d.isCharging);
   }, []);
 
   const handleNearestStation = useCallback((station: ChargingStation | null, dist: number) => {
@@ -86,6 +91,8 @@ export default function ExplorePage() {
         priorityDistance={priorityDistance}
         hour={hour}
         speed={speed}
+        battery={battery}
+        isCharging={isCharging}
         vehicleX={vehicleX}
         vehicleZ={vehicleZ}
         vehicleAngle={vehicleAngle}

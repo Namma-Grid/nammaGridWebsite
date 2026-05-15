@@ -20,6 +20,8 @@ interface CityHUDProps {
   priorityDistance: number;
   hour: number;
   speed: number;
+  battery: number;
+  isCharging: boolean;
   vehicleX: number;
   vehicleZ: number;
   vehicleAngle: number;
@@ -79,6 +81,8 @@ export default function CityHUD({
   priorityDistance,
   hour,
   speed,
+  battery,
+  isCharging,
   vehicleX,
   vehicleZ,
   vehicleAngle,
@@ -160,6 +164,48 @@ export default function CityHUD({
         <div className="hud-speed-unit">km/h</div>
         <div className="hud-speed-bar">
           <div className="hud-speed-fill" style={{ width: `${Math.min(100, (speed / 84) * 100)}%` }} />
+        </div>
+      </div>
+
+      {/* ── Battery ──────────────────────────────────────────────────────── */}
+      <div
+        className="absolute z-20 px-3 py-2.5 rounded-xl bg-white/95 backdrop-blur-xl border border-slate-200/70 w-[180px]"
+        style={{ right: 24, bottom: 110, boxShadow: '0 8px 24px -8px rgba(15,23,42,0.18)' }}
+      >
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.14em]">Battery</span>
+          {isCharging ? (
+            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Charging
+            </span>
+          ) : battery < 15 ? (
+            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Low</span>
+          ) : null}
+        </div>
+        <div className="flex items-baseline gap-1 mb-2">
+          <span className={`font-mono text-xl font-medium tabular-nums tracking-tight ${
+            battery < 15 ? 'text-rose-600' : battery < 35 ? 'text-amber-600' : 'text-slate-900'
+          }`}>
+            {Math.round(battery)}
+          </span>
+          <span className="text-[10px] text-slate-400 font-medium">%</span>
+        </div>
+        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{
+              width: `${battery}%`,
+              background:
+                battery < 15
+                  ? '#e11d48'
+                  : battery < 35
+                  ? '#f59e0b'
+                  : isCharging
+                  ? '#10b981'
+                  : '#059669',
+            }}
+          />
         </div>
       </div>
 
